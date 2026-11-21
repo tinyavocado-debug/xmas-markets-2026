@@ -176,7 +176,7 @@ addEventListener('mouseup', () => {
   if (dragStart === null) return;
   dragStart = null;
   // brushing a single day while the current day-trip has no date gives it that date
-  if (brush && brush[0] === brush[1] && !S.active.date) { S.active.date = DAYS[brush[0]]; S.draw(); }
+  if (brush && brush[0] === brush[1] && S.active && !S.active.date) { S.active.date = DAYS[brush[0]]; S.draw(); }
 });
 
 // --- map view filter + combine ---
@@ -243,7 +243,7 @@ S.map.on('moveend', update);
   addEventListener('resize', () => { const cur = parseInt(main.style.getPropertyValue('--maph')); if (cur) setH(cur); refreshMap(); });
 })();
 update();
-if (S.active.date) S.onActivate.forEach(f => f(S.active)); // shared link with a dated day: start on it
+if (S.active?.date) S.onActivate.forEach(f => f(S.active)); // shared link with a dated day: start on it
 </script>
 </body>
 </html>

@@ -46,8 +46,7 @@ const Shell = {
     const ids = str => (str || '').split(',').filter(x => MARKETS[+x]).map(x => MARKETS[+x]);
     if (q.get('trips')) q.get('trips').split('|').forEach(t => { const [d, st] = t.split(':'); this.newTrip(DAYS.includes(d) ? d : null, ids(st)); });
     else if (q.get('stops')) this.newTrip(null, ids(q.get('stops')));
-    if (!this.trips.length) this.newTrip(null);
-    this.active = this.trips[0];
+    this.active = this.trips[0] || null; // no day card until the user adds one (or picks a market)
     this.draw();
     return this;
   },
@@ -90,7 +89,14 @@ const Shell = {
     return t;
   },
   activate(t) { this.active = t; this.draw(); this.onActivate.forEach(f => f(t)); },
-  toggle(m) { const p = this.active.stops, i = p.indexOf(m); i >= 0 ? p.splice(i, 1) : p.push(m); this.draw(); },
+  addDay() {
+    const taken = this.trips.map(t => t.date);
+    const d = this.suggestDate(); // the brushed day, if it isn't already planned
+    return this.newTrip(d && !taken.includes(d) ? d : null);
+  },
+  toggle(m) {
+    if (!this.active) { this.active = this.addDay(); this.onActivate.forEach(f => f(this.active)); } // first market starts Day 1
+    const p = this.active.stops, i = p.indexOf(m); i >= 0 ? p.splice(i, 1) : p.push(m); this.draw(); },
   isPicked(m) { return this.trips.some(t => t.stops.includes(m)); },
   tripKm(t) { let km = 0; for (let i = 1; i < t.stops.length; i++) km += haversineKm(t.stops[i - 1], t.stops[i]); return km; },
   draw() {
@@ -100,7 +106,7 @@ const Shell = {
 
     // pins: numbered in the colour of their day (active day wins)
     MARKETS.forEach(m => {
-      const el = this.pin(m), t = A.stops.includes(m) ? A : this.trips.find(t => t.stops.includes(m));
+      const el = this.pin(m), t = A?.stops.includes(m) ? A : this.trips.find(t => t.stops.includes(m));
       el.classList.toggle('picked', !!t); el.classList.toggle('other', !!t && t !== A);
       el.textContent = t ? t.stops.indexOf(m) + 1 : '';
       el.style.setProperty('--tc', t ? t.color : '');
@@ -113,7 +119,7 @@ const Shell = {
     this.trips.forEach(t => {
       if (t.stops.length > 1) L.polyline(t.stops.map(m => [m.lat, m.lng]), { color: t.color, weight: t === A ? 4 : 2.5, opacity: t === A ? 1 : .55, dashArray: t === A ? '8 8' : '3 7', interactive: false }).addTo(this.routes);
     });
-    if (A.stops.length) this.sleigh.setLatLng([A.stops.at(-1).lat, A.stops.at(-1).lng]).addTo(this.map); else this.sleigh.remove();
+    if (A?.stops.length) this.sleigh.setLatLng([A.stops.at(-1).lat, A.stops.at(-1).lng]).addTo(this.map); else this.sleigh.remove();
 
     // header summary
     const all = this.trips.reduce((n, t) => n + t.stops.length, 0), km = this.trips.reduce((n, t) => n + this.tripKm(t), 0);
@@ -133,7 +139,7 @@ const Shell = {
           <span class="tag">Day ${ti + 1}</span>
           <input type="date" min="${SEASON_START}" max="${SEASON_END}" value="${t.date || ''}" title="Which day is this trip?">
           <span class="tkm">${[t.date && shortDay(t.date).split(',')[0], tkm && Math.round(tkm) + ' km'].filter(Boolean).join(' · ')}</span>
-          ${this.trips.length > 1 ? '<button class="del" title="Remove this day">✕</button>' : ''}
+          <button class="del" title="Remove this day">✕</button>
         </div><ol class="tstops"></ol>`;
       const ol = card.querySelector('ol');
       if (!t.stops.length) ol.innerHTML = `<li class="empty">${t !== A ? 'No stops yet. Click this card, then add markets.'
@@ -162,18 +168,14 @@ const Shell = {
         e.stopPropagation();
         if (t.stops.length && !confirm(`Remove Day ${ti + 1} and its ${t.stops.length} stop(s)?`)) return;
         this.trips.splice(this.trips.indexOf(t), 1);
-        if (this.active === t) this.active = this.trips[0];
+        if (this.active === t) this.active = this.trips[0] || null;
         this.draw(); this.onActivate.forEach(f => f(this.active));
       });
       box.appendChild(card);
     });
     const add = document.createElement('button');
-    add.id = 'addday'; add.textContent = '+ Add another day';
-    add.onclick = () => {
-      const taken = this.trips.map(t => t.date);
-      const d = this.suggestDate(); // the brushed day, if it isn't already planned
-      this.activate(this.newTrip(d && !taken.includes(d) ? d : null));
-    };
+    add.id = 'addday'; add.textContent = this.trips.length ? '+ Add another day' : '+ Add a day';
+    add.onclick = () => this.activate(this.addDay());
     box.appendChild(add);
 
     // shareable URL
