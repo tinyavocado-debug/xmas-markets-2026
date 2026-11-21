@@ -1,12 +1,5 @@
 // Shared core for the Sleigh Route variants: header + nav, map with pins, sleigh ticket.
 // A variant page provides <div id="main"> containing <div id="map">, then calls Shell.init({ title, hint }).
-const C_VARIANTS = [
-  ['c0-gantt.html', 'Gantt (orig)'],
-  ['c-calendar.html', 'Calendar'],
-  ['c1-week-strip.html', '1 · Week Strip'],
-  ['c2-brush-link.html', '2 · Brush & Link'],
-  ['c3-near-me.html', '3 · Near Me'],
-];
 const REGION_COLORS = {
   'Greater Toronto Area': '#d7263d', 'Ottawa Region': '#7b3fa0', 'York, Durham & Headwaters': '#1b7f5b',
   'Huron, Perth, Waterloo & Wellington': '#e08a00', 'Bruce, Grey & Simcoe': '#2a6fdb', 'Southwestern Ontario': '#8c5a2b',
@@ -16,11 +9,6 @@ const COLOR_MODE = new URLSearchParams(location.search).get('color') === 'region
 const col = m => COLOR_MODE === 'region' ? REGION_COLORS[m.region] : DURATIONS[durationKind(m)].color;
 const DAYS = seasonDays(), N = DAYS.length, TODAY = todayIso();
 const openOn = (m, d) => ['open', 'maybe'].includes(dayStatus(m, d));
-
-function navHtml() {
-  const here = location.pathname.split('/').pop();
-  return '<nav>' + C_VARIANTS.map(([f, l]) => `<a href="${f}" class="${f === here ? 'on' : ''}">${l}</a>`).join('') + '</nav>';
-}
 
 const TRIP_COLORS = ['#d7263d', '#2a6fdb', '#7b3fa0', '#0f9fa8', '#e08a00', '#1d2a24'];
 const shortDay = d => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
