@@ -132,7 +132,7 @@ const Shell = {
       card.innerHTML = `<div class="th">
           <span class="tag">Day ${ti + 1}</span>
           <input type="date" min="${SEASON_START}" max="${SEASON_END}" value="${t.date || ''}" title="Which day is this trip?">
-          <span class="tkm">${t.date ? shortDay(t.date).split(',')[0] : 'pick a date'}${tkm ? ' · ' + Math.round(tkm) + ' km' : ''}</span>
+          <span class="tkm">${[t.date && shortDay(t.date).split(',')[0], tkm && Math.round(tkm) + ' km'].filter(Boolean).join(' · ')}</span>
           ${this.trips.length > 1 ? '<button class="del" title="Remove this day">✕</button>' : ''}
         </div><ol class="tstops"></ol>`;
       const ol = card.querySelector('ol');
