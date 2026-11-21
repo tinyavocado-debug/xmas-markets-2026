@@ -20,26 +20,32 @@
   #bar button { border: 1.5px solid var(--ink); background: #fff; border-radius: 5px; cursor: pointer; font-size: 11px; padding: 2px 7px; }
   #tl { overflow-y: auto; position: relative; user-select: none; }
   .inner { position: relative; }
-  .tl-head { position: sticky; top: 0; z-index: 6; background: var(--bg); display: grid; grid-template-columns: 240px 1fr; border-bottom: 2px solid var(--ink); }
+  .tl-head { position: sticky; top: 0; z-index: 6; background: var(--bg); display: grid; grid-template-columns: 300px 1fr; border-bottom: 2px solid var(--ink); }
   .tl-head .label { font: 10.5px 'DM Mono', monospace; padding: 9px 12px; text-transform: uppercase; opacity: .7; }
   .months { position: relative; height: 30px; font: 11px 'DM Mono', monospace; cursor: crosshair; }
   .months span { position: absolute; top: 3px; padding-left: 4px; border-left: 1px solid var(--ink); height: 24px; pointer-events: none; }
   .months span.todaylbl { border: 0; top: 15px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
   .reg { font: 10.5px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px 3px; display: flex; align-items: center; gap: 6px; }
   .reg i { width: 9px; height: 9px; border-radius: 2px; }
-  .row { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--line); transition: opacity .15s; }
+  .row .name { display: flex; align-items: center; gap: 6px; }
+  .row .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .row .nm:hover { text-decoration: underline; }
+  .row .links { display: flex; gap: 2px; flex: none; }
+  .row .links a, .row .links span { text-decoration: none; font-size: 12px; width: 22px; height: 20px; display: grid; place-items: center; border-radius: 5px; }
+  .row .links a:hover { background: #fff; box-shadow: 0 0 0 1.5px var(--ink); }
+  .row .links .nolink { opacity: .2; cursor: help; }
+  .row { display: grid; grid-template-columns: 300px 1fr; border-bottom: 1px solid var(--line); transition: opacity .15s; }
   .row.hl { background: #fff1d6; }
   .row.dim { opacity: .28; }
   .row.picked .name { color: var(--red); font-weight: 600; }
   .row.picked .name::before { content: '🛷 '; }
-  .row .name { font-size: 12.5px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-  .row .name:hover { text-decoration: underline; }
+  .row .name { font-size: 12.5px; padding: 4px 8px 4px 12px; white-space: nowrap; overflow: hidden; }
   .row .name small { font: 10.5px 'DM Mono', monospace; opacity: .6; margin-left: 4px; }
   .track { position: relative; height: 24px; cursor: crosshair; }
   .bar { position: absolute; top: 6px; height: 12px; border-radius: 6px; min-width: 6px; pointer-events: none; }
   .bar.select { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 4px, transparent 4px 8px) !important; }
   .tbd { position: absolute; top: 5px; left: 6px; font: 10.5px 'DM Mono', monospace; opacity: .6; pointer-events: none; }
-  .grid-lines { position: absolute; top: 0; bottom: 0; left: 240px; right: 0; pointer-events: none; z-index: 1; }
+  .grid-lines { position: absolute; top: 0; bottom: 0; left: 300px; right: 0; pointer-events: none; z-index: 1; }
   .grid-lines .wkend { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.035); }
   .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
   #brush { position: absolute; top: 0; bottom: 0; background: rgba(27,127,91,.14); border-left: 2px solid var(--green); border-right: 2px solid var(--green); display: none; }
@@ -77,14 +83,16 @@ function build() {
     ms.forEach(m => {
       const bars = m.tbd ? '<span class="tbd">dates TBA, check site</span>' : m.spans.map(([s, e]) =>
         `<div class="bar ${m.select ? 'select' : ''}" style="background:${col(m)};left:${pct(DAYS.indexOf(s))}%;width:${pct(DAYS.indexOf(e) - DAYS.indexOf(s) + 1)}%"></div>`).join('');
-      html += `<div class="row" data-id="${m.id}" data-r="${g}"><div class="name" title="Add to sleigh">${m.name}<small>${m.city} · ${durationText(m)}</small></div><div class="track">${bars}</div></div>`;
+      const links = (m.url ? `<a href="${m.url}" target="_blank" rel="noopener" title="Market website">🌐</a>` : `<span class="nolink" title="The source page gives no link for this market">🌐</span>`)
+        + `<a href="${gmapsUrl(m)}" target="_blank" rel="noopener" title="Open ${m.venue} in Google Maps">📍</a>`;
+      html += `<div class="row" data-id="${m.id}" data-r="${g}"><div class="name"><span class="nm" title="Add to sleigh">${m.name}<small>${m.city} · ${durationText(m)}</small></span><span class="links">${links}</span></div><div class="track">${bars}</div></div>`;
     });
   });
   tl.innerHTML = html + '<div class="empty-note" id="none" style="display:none">No markets match. Zoom out or change the filters.</div></div>';
   rows = [...tl.querySelectorAll('.row')];
   rows.forEach(r => {
     const m = MARKETS[+r.dataset.id];
-    r.querySelector('.name').onclick = () => S.toggle(m);
+    r.querySelector('.nm').onclick = () => S.toggle(m);
     r.onmouseenter = () => S.hl(m, true); r.onmouseleave = () => S.hl(m, false);
     r.classList.toggle('picked', S.isPicked(m));
   });

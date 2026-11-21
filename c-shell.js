@@ -26,7 +26,7 @@ const Shell = {
   picked: [], onHl: [], onPick: [],
   init({ hint = '' } = {}) {
     document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1>${navHtml()}<span class="hint">${hint}</span></header>`);
-    document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div></div>
+    document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div><a id="groute" target="_blank" rel="noopener"></a></div>
       <ul id="stops"></ul><div class="legend">${COLOR_MODE === 'region'
         ? Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
         : Object.values(DURATIONS).map(d => `<span><i style="background:${d.color}"></i>${d.label} <span style="opacity:.6">(${d.detail})</span></span>`).join('')}
@@ -47,6 +47,8 @@ const Shell = {
       return mk;
     });
     this.addFilter();
+    // ?stops=3,20,23 preloads the sleigh (shareable route)
+    (new URLSearchParams(location.search).get('stops') || '').split(',').filter(Boolean).forEach(i => MARKETS[+i] && this.picked.push(MARKETS[+i]));
     this.draw();
     return this;
   },
@@ -100,11 +102,21 @@ const Shell = {
     ul.innerHTML = p.length ? '' : '<li class="empty">Click any market (on the map or in the view below) to load it onto your sleigh.</li>';
     p.forEach(m => {
       const li = document.createElement('li');
-      li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small><button title="Remove">✕</button>`;
+      li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small><span class="lnk">${m.url ? `<a href="${m.url}" target="_blank" rel="noopener">🌐 website</a>` : '<span title="The source page gives no link">no site listed</span>'}<a href="${gmapsUrl(m)}" target="_blank" rel="noopener">📍 Google Maps</a></span><button title="Remove">✕</button>`;
       li.querySelector('button').onclick = () => this.toggle(m);
       li.onmouseenter = () => this.hl(m, true); li.onmouseleave = () => this.hl(m, false);
       ul.appendChild(li);
     });
+    const g = document.getElementById('groute');
+    g.style.display = p.length ? '' : 'none';
+    if (p.length === 1) { g.href = gmapsUrl(p[0]); g.textContent = '📍 Open in Google Maps'; }
+    else if (p.length > 1) {
+      g.href = routeUrl(p.slice(0, 11));
+      g.textContent = p.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : `🚗 Open route in Google Maps`;
+    }
+    const q = new URLSearchParams(location.search);
+    p.length ? q.set('stops', p.map(m => m.id).join(',')) : q.delete('stops');
+    history.replaceState(null, '', '?' + q);
     this.onPick.forEach(f => f());
   },
 };

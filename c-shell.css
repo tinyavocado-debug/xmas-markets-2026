@@ -54,3 +54,10 @@ header .hint { background: #fff; padding: 4px 10px; border-radius: 6px; font-siz
 .durctl .sw.k-short { width: 7px; height: 7px; } .durctl .sw.k-weekly { width: 7px; height: 7px; outline: 1.5px dashed #7b3fa0; outline-offset: 1px; }
 .durctl .sub { font: 10.5px 'DM Mono', monospace; opacity: .7; margin-top: 4px; }
 .durctl .sub a { color: var(--red); }
+
+#stops .lnk { display: flex; gap: 10px; margin-top: 4px; font: 11px 'DM Mono', monospace; }
+#stops .lnk a { color: var(--red); text-decoration: none; }
+#stops .lnk a:hover { text-decoration: underline; }
+#stops .lnk span { opacity: .5; }
+#groute { display: block; margin-top: 10px; text-align: center; background: var(--ink); color: #fff; text-decoration: none; font-size: 13px; padding: 7px 10px; border-radius: 7px; }
+#groute:hover { background: var(--red); }

@@ -128,3 +128,28 @@ function durationText(m) {
   if (k === 'weekly') return `${n} single days`;
   return (m.select ? 'select dates within ' : '') + `${n} day${n > 1 ? 's' : ''}` + (m.spans.length > 1 ? ` over ${m.spans.length} runs` : '');
 }
+
+// ---- links ----
+// Search by venue address (pins are approximate, the address is what the page gives)
+// Cleaner Google Maps searches where the source page's venue text is vague
+const MAP_QUERY = {
+  'Winter Market at St. Lawrence Market': 'St. Lawrence Market, Toronto, ON',
+  'The Christmas Trail': 'Stratford, ON',
+  'Elora Christmas Market': 'Elora, ON',
+  'Spirit of the Season': 'Downtown Guelph, ON',
+  'Holiday Weekend and Market': 'Horseshoe Valley Resort, Oro-Medonte, ON',
+  'The Gilford Christmas Market': 'Gilford Local Eatery, 1096 Shore Acres Dr, Innisfil, ON',
+  'MacKinnon Brothers Holiday Market': 'MacKinnon Brothers Brewing Co, Bath, ON',
+  'Enchanted In The District': 'Bridge St E & Front St, Belleville, ON',
+  'Dresden Christmas Night Market': 'Downtown Dresden, ON',
+  'Stouffville Holiday Market': 'Main St, Stouffville, ON',
+};
+function placeQuery(m) { return MAP_QUERY[m.name] || `${m.venue}, ${m.city}${/QC/.test(m.city) ? '' : ', ON'}`; }
+function gmapsUrl(m) { return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(placeQuery(m)); }
+// Google Maps directions through the stops in order (URL API allows up to 9 waypoints)
+function routeUrl(stops) {
+  const q = stops.map(placeQuery);
+  const p = new URLSearchParams({ api: '1', origin: q[0], destination: q.at(-1), travelmode: 'driving' });
+  if (q.length > 2) p.set('waypoints', q.slice(1, -1).join('|'));
+  return 'https://www.google.com/maps/dir/?' + p;
+}
