@@ -20,8 +20,6 @@
   #bar { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 12.5px; border-bottom: 2px solid var(--ink); background: #fff; }
   #bar .chip { font-family: 'DM Mono', monospace; font-size: 11.5px; padding: 2px 8px; border-radius: 12px; background: #f1ece2; }
   #bar .chip.on { background: var(--ink); color: #fff; }
-  #bar .grp { display: flex; gap: 3px; align-items: center; font-size: 12px; }
-  #bar .grp button.on { background: var(--ink); color: #fff; }
   #bar button { border: 1.5px solid var(--ink); background: #fff; border-radius: 5px; cursor: pointer; font-size: 11px; padding: 2px 7px; }
   #tl { overflow-y: auto; position: relative; user-select: none; }
   .inner { position: relative; }
@@ -76,16 +74,14 @@
 </div>
 <script>
 const S = Shell.init({ hint: 'Pan/zoom the map to filter places · drag across the timeline to filter dates · plan several days in the sleigh' });
-const REGION_ORDER = ['Southwestern Ontario', 'Huron, Perth, Waterloo & Wellington', 'Bruce, Grey & Simcoe', 'Niagara', 'Greater Toronto Area',
-  'York, Durham & Headwaters', 'Kawarthas & Northumberland', 'Southeastern Ontario', 'Ottawa Region', 'Northeastern Ontario'];
 const pct = i => i / N * 100;
 const first = m => m.spans[0]?.[0] ?? '9';
 
 // build timeline
 const tl = document.getElementById('tl');
-let groupBy = 'duration', rows = [];
+let rows = [];
 function build() {
-  let html = `<div class="inner"><div class="tl-head"><div class="label">${groupBy === 'region' ? 'West → East' : 'Longest → shortest'}</div><div class="months" id="scale">`;
+  let html = `<div class="inner"><div class="tl-head"><div class="label">Longest → shortest</div><div class="months" id="scale">`;
   DAYS.forEach((d, i) => {
     if (d.endsWith('-01')) html += `<span class="mo" style="left:${pct(i)}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`;
     const wd = isoToDate(d).getDay();
@@ -95,9 +91,7 @@ function build() {
   html += `<span class="todaylbl" style="left:${pct(DAYS.indexOf(TODAY))}%">TODAY</span></div></div><div class="grid-lines" id="gl">`;
   DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) html += `<div class="wkend" style="left:${pct(i)}%;width:${pct(2)}%"></div>`; });
   html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div><div id="brush"></div><div class="hovline" id="hovline"></div></div>`;
-  const groups = groupBy === 'region'
-    ? REGION_ORDER.map(r => [r, REGION_COLORS[r], '', MARKETS.filter(m => m.region === r)])
-    : Object.entries(DURATIONS).map(([k, d]) => [d.label, d.color, d.detail, MARKETS.filter(m => durationKind(m) === k)]);
+  const groups = Object.entries(DURATIONS).map(([k, d]) => [d.label, d.color, d.detail, MARKETS.filter(m => durationKind(m) === k)]);
   groups.forEach(([g, c, detail, list]) => {
     const ms = list.sort((a, b) => first(a) < first(b) ? -1 : 1);
     html += `<div class="reg" data-r="${g}"><i style="background:${c}"></i>${g}${detail ? ` <span style="opacity:.55;text-transform:none">· ${detail} · ${ms.length}</span>` : ''}</div>`;
@@ -201,11 +195,9 @@ function update() {
   document.getElementById('bar').innerHTML =
     `<span class="chip ${inView.size < MARKETS.length ? 'on' : ''}">📍 ${inView.size === MARKETS.length ? 'all of Ontario' : inView.size + ' in map view'}</span>
      <span class="chip ${brush ? 'on' : ''}">📅 ${dateTxt}</span>
-     <span class="grp">Group by <button data-g="duration" class="${groupBy === 'duration' ? 'on' : ''}">how long</button><button data-g="region" class="${groupBy === 'region' ? 'on' : ''}">region</button></span>
      <b>${both} market${both === 1 ? '' : 's'} match</b>
      ${brush ? '<button id="clrD">clear dates</button>' : ''}
      ${inView.size < MARKETS.length ? '<button id="clrM">show all of Ontario</button>' : ''}`;
-  document.querySelectorAll('.grp button').forEach(b => b.onclick = () => { groupBy = b.dataset.g; build(); drawTrips(); update(); });
   document.getElementById('clrD')?.addEventListener('click', () => { brush = null; update(); });
   document.getElementById('clrM')?.addEventListener('click', () => S.map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [20, 20] }));
 }

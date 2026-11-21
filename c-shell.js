@@ -63,11 +63,10 @@ const Shell = {
       const d = L.DomUtil.create('div', 'durctl');
       L.DomEvent.disableClickPropagation(d);
       const count = k => MARKETS.filter(m => durationKind(m) === k).length;
-      const other = new URLSearchParams(location.search); other.set('color', COLOR_MODE === 'region' ? 'duration' : 'region');
       d.innerHTML = `<div class="chips"><b>How long?</b>
         <button data-k="" class="on">All<span class="n">${MARKETS.length}</span></button>
         ${['long', 'mid', 'short', 'weekly'].map(k => `<button data-k="${k}" title="${DURATIONS[k].detail}"><i class="sw k-${k}" style="background:${DURATIONS[k].color}"></i>${DURATIONS[k].label}<span class="n">${count(k)}</span></button>`).join('')}</div>
-        <div class="sub">Pin size = how long it runs · colour by <a href="?${other}">${COLOR_MODE === 'region' ? 'duration' : 'region'}</a> instead</div>`;
+        <div class="sub">Pin size = how long it runs</div>`;
       d.querySelectorAll('button').forEach(b => b.onclick = () => {
         this.kind = this.kind === b.dataset.k || !b.dataset.k ? null : b.dataset.k;
         d.querySelectorAll('button').forEach(x => x.classList.toggle('on', (x.dataset.k || null) === this.kind));
