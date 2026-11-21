@@ -3,6 +3,7 @@
 // Coordinates are hand-placed at venue level (approximate, not geocoded).
 // spans: inclusive [start, end] ISO dates. select:true = "select dates" within the span (check site).
 // tbd:true = page gives no exact dates.
+// datesFrom: 'official site' = the source said "select dates"; exact days taken from the market's own site (2026-11-21).
 
 const SEASON_START = '2026-11-01';
 const SEASON_END = '2027-01-03';
@@ -24,10 +25,10 @@ const MARKETS = [
 
   // Ottawa Region
   { name: 'Canadian Museum of History Christmas Market', city: 'Gatineau, QC', region: 'Ottawa Region', venue: 'Canadian Museum of History, 100 Laurier St', when: 'Nov 26 – 29', url: 'https://www.historymuseum.ca/for-professionals/christmas-market', blurb: 'Free market in the museum halls: ornaments, wood crafts, blown glass, specialty food.', lat: 45.4301, lng: -75.7093, spans: [['2026-11-26', '2026-11-29']] },
-  { name: 'Ottawa Christmas Market', city: 'Ottawa', region: 'Ottawa Region', venue: 'Aberdeen Square, Lansdowne Park', when: 'Select dates, Nov 20 – Dec 31', url: 'https://www.ottawachristmasmarket.com/', blurb: 'Free Yuletide market with pop-up shops, hot cocoa, lights and Santa visits.', lat: 45.3990, lng: -75.6838, spans: [['2026-11-20', '2026-12-31']], select: true },
+  { name: 'Ottawa Christmas Market', city: 'Ottawa', region: 'Ottawa Region', venue: 'Aberdeen Square, Lansdowne Park', when: 'Fri–Sun, Nov 20 – Dec 20, plus Dec 31', url: 'https://www.ottawachristmasmarket.com/', blurb: 'Free Yuletide market with pop-up shops, hot cocoa, lights and Santa visits.', lat: 45.3990, lng: -75.6838, spans: [['2026-11-20', '2026-11-22'], ['2026-11-27', '2026-11-29'], ['2026-12-04', '2026-12-06'], ['2026-12-11', '2026-12-13'], ['2026-12-18', '2026-12-20'], ['2026-12-31', '2026-12-31']], datesFrom: 'official site' },
 
   // York, Durham and Headwaters
-  { name: "Canada's Wonderland WinterFest", city: 'Vaughan', region: 'York, Durham & Headwaters', venue: "Canada's Wonderland, 1 Canada's Wonderland Dr", when: 'Select dates, Nov 21 – Dec 27', url: 'https://www.sixflags.com/canadaswonderland/events/winterfest', blurb: 'The theme park turned winter wonderland: shows, skating, light displays.', lat: 43.8430, lng: -79.5390, spans: [['2026-11-21', '2026-12-27']], select: true },
+  { name: "Canada's Wonderland WinterFest", city: 'Vaughan', region: 'York, Durham & Headwaters', venue: "Canada's Wonderland, 1 Canada's Wonderland Dr", when: 'Select dates, Nov 21 – Jan 3', url: 'https://www.sixflags.com/canadaswonderland/events/winterfest', blurb: 'The theme park turned winter wonderland: shows, skating, light displays.', lat: 43.8430, lng: -79.5390, spans: [['2026-11-21', '2027-01-03']], select: true },
   { name: "Uxbridge Farmers' Holiday Market", city: 'Uxbridge', region: 'York, Durham & Headwaters', venue: 'Uxbridge Arena Hall, 291 Brock St W', when: 'Nov 1, 8, 15, 22 & Dec 6, 13', url: 'https://uxbridgefarmersmarket.ca/', blurb: "Free holiday edition of the Uxbridge Farmers' Market in the arena hall.", lat: 44.1090, lng: -79.1300, spans: one('2026-11-01', '2026-11-08', '2026-11-15', '2026-11-22', '2026-12-06', '2026-12-13') },
   { name: 'Markham Home for the Holidays', city: 'Markham', region: 'York, Durham & Headwaters', venue: 'Markham Fairgrounds, 10801 McCowan Rd', when: 'Nov 20 – 22', url: 'https://homefortheholidays.ca/', blurb: 'Ceramics, stained glass, gourmet treats and Victorian carollers.', lat: 43.9335, lng: -79.2580, spans: [['2026-11-20', '2026-11-22']] },
   { name: 'Stouffville Holiday Market', city: 'Stouffville', region: 'York, Durham & Headwaters', venue: 'Main Street', when: 'Nov 20 – 21', url: 'https://www.townofws.ca/play/events/holiday-market/', blurb: 'Artisan marketplace, light displays, live music and Santa on Main Street.', lat: 43.9707, lng: -79.2489, spans: [['2026-11-20', '2026-11-21']] },
@@ -36,7 +37,7 @@ const MARKETS = [
   { name: "Richmond Hill's Merry Marketplace", city: 'Richmond Hill', region: 'York, Durham & Headwaters', venue: 'Richmond Green Park, 1300 Elgin Mills Rd E', when: 'Nov 14, 21, 28 & Dec 5, 12', url: 'https://www.richmondhill.ca/en/things-to-do/merry-marketplace.aspx', blurb: 'Outdoor shopping under twinkling lights beside fires.', lat: 43.8960, lng: -79.3870, spans: one('2026-11-14', '2026-11-21', '2026-11-28', '2026-12-05', '2026-12-12') },
 
   // Huron, Perth, Waterloo and Wellington
-  { name: 'Elora Christmas Market', city: 'Elora', region: 'Huron, Perth, Waterloo & Wellington', venue: 'Downtown Elora', when: 'Select dates, Nov 14 – Jan 3', url: 'https://elorachristmasmarket.com/', blurb: 'The whole town goes old-world European: a sparkling tree, festive food, local vendors.', lat: 43.6845, lng: -80.4307, spans: [['2026-11-14', '2027-01-03']], select: true },
+  { name: 'Elora Christmas Market', city: 'Elora', region: 'Huron, Perth, Waterloo & Wellington', venue: 'Downtown Elora', when: 'Wed–Sun, Nov 14 – Jan 3', url: 'https://elorachristmasmarket.com/', blurb: 'The whole town goes old-world European: a sparkling tree, festive food, local vendors.', lat: 43.6845, lng: -80.4307, spans: [['2026-11-14', '2026-11-15'], ['2026-11-18', '2026-11-22'], ['2026-11-25', '2026-11-29'], ['2026-12-02', '2026-12-06'], ['2026-12-09', '2026-12-13'], ['2026-12-16', '2026-12-20'], ['2026-12-23', '2026-12-27'], ['2026-12-30', '2027-01-03']], datesFrom: 'official site' },
   { name: 'Cambridge Holiday Market', city: 'Cambridge', region: 'Huron, Perth, Waterloo & Wellington', venue: 'Cambridge City Hall, 50 Dickson St', when: 'Nov 27 – 29', url: 'https://www.cambridge.ca/recreation-culture/events-festivals/winterfest/cambridge-holiday-market/', blurb: '100+ artisans, seasonal food, and photos with Santa and Willy Melt.', lat: 43.3584, lng: -80.3150, spans: [['2026-11-27', '2026-11-29']] },
   { name: 'Christkindl Market', city: 'Kitchener', region: 'Huron, Perth, Waterloo & Wellington', venue: 'Kitchener City Hall, 200 King St W', when: 'Dec 3 – 13', url: 'https://www.kitchener.ca/arts-culture-and-events/events/christkindl-market/', blurb: 'German-style market: Glühwein, pretzels, blacksmiths and folklore characters.', lat: 43.4510, lng: -80.4927, spans: [['2026-12-03', '2026-12-13']] },
   { name: 'Sparkles in St. Jacobs', city: 'St. Jacobs', region: 'Huron, Perth, Waterloo & Wellington', venue: 'St. Jacobs Village', when: 'Nov 12 – 15 & 19 – 22', url: 'https://www.stjacobsvillage.com/sparkles', blurb: 'Thousands of lights, late shopping and carollers in Victorian costume.', lat: 43.5392, lng: -80.5540, spans: [['2026-11-12', '2026-11-15'], ['2026-11-19', '2026-11-22']] },
@@ -44,7 +45,7 @@ const MARKETS = [
   { name: 'Spirit of the Season', city: 'Guelph', region: 'Huron, Perth, Waterloo & Wellington', venue: 'Downtown Guelph', when: 'Dec 4 – 6 & 11 – 13', url: 'https://www.spiritoftheseasonguelph.com/', blurb: 'Indoor and outdoor marketplace of handmade crafts and artisanal treats.', lat: 43.5448, lng: -80.2482, spans: [['2026-12-04', '2026-12-06'], ['2026-12-11', '2026-12-13']] },
 
   // Bruce, Grey and Simcoe
-  { name: 'Holiday Market at Friday Harbour', city: 'Innisfil', region: 'Bruce, Grey & Simcoe', venue: 'Friday Harbour Resort, 3999 Friday Dr', when: 'Select dates, Nov 20 – Dec 27', url: 'https://www.fridayharbour.com/events', blurb: 'European-inspired chalet cabins, sparkling lights, Santa and carollers.', lat: 44.3930, lng: -79.5260, spans: [['2026-11-20', '2026-12-27']], select: true },
+  { name: 'Holiday Market at Friday Harbour', city: 'Innisfil', region: 'Bruce, Grey & Simcoe', venue: 'Friday Harbour Resort, 3999 Friday Dr', when: 'Weekends Nov 20 – Dec 20, Dec 21–24, Dec 26–27', url: 'https://www.fridayharbour.com/events', blurb: 'European-inspired chalet cabins, sparkling lights, Santa and carollers.', lat: 44.3930, lng: -79.5260, spans: [['2026-11-20', '2026-11-22'], ['2026-11-27', '2026-11-29'], ['2026-12-04', '2026-12-06'], ['2026-12-11', '2026-12-13'], ['2026-12-18', '2026-12-24'], ['2026-12-26', '2026-12-27']], datesFrom: 'official site' },
   { name: 'Southern Georgian Bay Christmas Market', city: 'The Blue Mountains', region: 'Bruce, Grey & Simcoe', venue: 'Alpine Ski Club, 17-242 Arrowhead Rd', when: 'Nov 28 – 29', url: 'https://www.sgbchristmasmarket.ca/', blurb: 'Handcrafted goods, fashion, jewellery and treats at a ski club.', lat: 44.5420, lng: -80.3480, spans: [['2026-11-28', '2026-11-29']] },
   { name: 'Christmas on the Bay', city: 'Meaford', region: 'Bruce, Grey & Simcoe', venue: 'Historic downtown Meaford', when: 'Dec 3 – 6', url: 'https://christmasonthebay.ca/', blurb: 'Four-day European-style market with fire pits, live music and light displays.', lat: 44.6070, lng: -80.5920, spans: [['2026-12-03', '2026-12-06']] },
   { name: 'The Gilford Christmas Market', city: 'Gilford, Innisfil', region: 'Bruce, Grey & Simcoe', venue: 'Gilford Local Eatery, 1096 Shore Acres Dr', when: 'Nov 28', url: null, blurb: 'Open-air market on the shore of Lake Simcoe with stalls, treats and live music.', lat: 44.2340, lng: -79.5550, spans: one('2026-11-28') },
@@ -114,9 +115,18 @@ const DURATIONS = {
 };
 function spanLen([s, e]) { return Math.round((isoToDate(e) - isoToDate(s)) / 864e5) + 1; }
 function openDayCount(m) { return m.spans.reduce((n, sp) => n + spanLen(sp), 0); }
+// longest stretch, bridging closures of 2 days or less (so "Wed–Sun all season" still counts as all season)
+function longestStretch(m) {
+  let best = 0, cur = null;
+  for (const [s, e] of m.spans) {
+    if (cur && spanLen([cur[1], s]) - 2 <= 2) cur[1] = e; else cur = [s, e];
+    best = Math.max(best, spanLen(cur));
+  }
+  return best;
+}
 function durationKind(m) {
   if (m.tbd) return 'tbd';
-  const longest = Math.max(...m.spans.map(spanLen));
+  const longest = longestStretch(m);
   if (m.spans.length >= 3 && longest === 1) return 'weekly';
   if (longest >= 21) return 'long';
   if (longest >= 5) return 'mid';
