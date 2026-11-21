@@ -10,8 +10,13 @@
 <script src="data.js"></script>
 <script src="c-shell.js"></script>
 <style>
-  #main { display: grid; grid-template-rows: 44% 34px 1fr; }
-  #map { border-bottom: 3px solid var(--ink); }
+  #main { display: grid; grid-template-rows: var(--maph, 44%) 12px 34px 1fr; }
+  #divider { cursor: row-resize; background: var(--ink); display: grid; place-items: center; touch-action: none; position: relative; z-index: 700; }
+  #divider::before { content: ''; width: 46px; height: 4px; border-radius: 2px; background: repeating-linear-gradient(90deg, #fff 0 6px, var(--red) 6px 12px); }
+  #divider:hover::before, body.resizing #divider::before { width: 80px; }
+  #divider::after { content: 'drag to resize · double-click to reset'; position: absolute; left: calc(50% + 52px); font: 10px 'DM Mono', monospace; color: #fff; opacity: 0; transition: opacity .2s; white-space: nowrap; }
+  #divider:hover::after { opacity: .75; }
+  body.resizing, body.resizing * { cursor: row-resize !important; user-select: none; }
   #bar { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 12.5px; border-bottom: 2px solid var(--ink); background: #fff; }
   #bar .chip { font-family: 'DM Mono', monospace; font-size: 11.5px; padding: 2px 8px; border-radius: 12px; background: #f1ece2; }
   #bar .chip.on { background: var(--ink); color: #fff; }
@@ -55,6 +60,7 @@
 <body>
 <div id="main">
   <div id="map"></div>
+  <div id="divider" title="Drag to resize · double-click to reset"></div>
   <div id="bar"></div>
   <div id="tl"></div>
 </div>
@@ -151,6 +157,38 @@ function update() {
   document.getElementById('clrM')?.addEventListener('click', () => S.map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [20, 20] }));
 }
 S.map.on('moveend', update);
+
+// --- draggable divider between map and timeline ---
+(() => {
+  const main = document.getElementById('main'), div = document.getElementById('divider');
+  const MIN_MAP = 120, MIN_TL = 150;
+  const setH = h => {
+    const max = main.clientHeight - 12 - 34 - MIN_TL;
+    h = Math.max(MIN_MAP, Math.min(max, h));
+    main.style.setProperty('--maph', h + 'px');
+    return h;
+  };
+  let raf = 0;
+  const refreshMap = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => S.map.invalidateSize({ pan: false })); };
+  const saved = +localStorage.getItem('c2-map-height');
+  if (saved) { setH(saved); refreshMap(); }
+  div.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    div.setPointerCapture(e.pointerId);
+    document.body.classList.add('resizing');
+    const top = main.getBoundingClientRect().top;
+    const move = ev => { setH(ev.clientY - top - 6); refreshMap(); };
+    const up = () => {
+      div.removeEventListener('pointermove', move); div.removeEventListener('pointerup', up);
+      document.body.classList.remove('resizing');
+      localStorage.setItem('c2-map-height', parseInt(getComputedStyle(main).getPropertyValue('--maph')) || '');
+      update(); // map view changed size, refresh "in map view" filter
+    };
+    div.addEventListener('pointermove', move); div.addEventListener('pointerup', up);
+  });
+  div.addEventListener('dblclick', () => { main.style.removeProperty('--maph'); localStorage.removeItem('c2-map-height'); refreshMap(); setTimeout(update, 50); });
+  addEventListener('resize', () => { const cur = parseInt(main.style.getPropertyValue('--maph')); if (cur) setH(cur); refreshMap(); });
+})();
 update();
 </script>
 </body>
