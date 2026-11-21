@@ -93,7 +93,7 @@ function renderChart() {
   html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div></div>`;
 
   BANDS.forEach(([lo, hi, label], bi) => {
-    const ms = MARKETS.filter(m => !m.tbd && dist(m) >= lo && dist(m) < hi)
+    const ms = MARKETS.filter(m => !m.tbd && S.passes(m) && dist(m) >= lo && dist(m) < hi)
       .map(m => ({ m, s: DAYS.indexOf(m.spans[0][0]), e: DAYS.indexOf(m.spans.at(-1)[1]) }))
       .sort((a, b) => a.s - b.s || dist(a.m) - dist(b.m));
     // pack into lanes: a market keeps one lane across all its date spans
@@ -133,6 +133,7 @@ function renderChart() {
 }
 function markPicked() { document.querySelectorAll('.bar[data-id]').forEach(b => b.classList.toggle('picked', S.isPicked(MARKETS[+b.dataset.id]))); }
 S.onPick.push(markPicked);
+S.onFilter.push(renderChart);
 S.onHl.push((m, on) => {
   const bars = document.querySelectorAll(`.bar[data-id="${m.id}"]`);
   bars.forEach(b => b.classList.toggle('hl', on));

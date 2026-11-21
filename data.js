@@ -101,3 +101,30 @@ function haversineKm(a, b) {
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLng / 2) ** 2;
   return 2 * R * Math.asin(Math.sqrt(h));
 }
+
+// ---- duration ----
+// long: one continuous run of 3+ weeks · mid: 5–20 days · short: runs of 4 days or less (a weekend or two)
+// weekly: 3+ separate single days (e.g. every Saturday) · tbd: no dates
+const DURATIONS = {
+  long:   { label: 'All season',   detail: '3+ weeks straight', color: '#1b7f5b', size: 22 },
+  mid:    { label: 'Week or two',  detail: '5–20 days',         color: '#e0a43a', size: 16 },
+  short:  { label: 'Weekend-ish',  detail: 'runs of 1–4 days',  color: '#d7263d', size: 11 },
+  weekly: { label: 'Weekly',       detail: 'single days, repeating', color: '#7b3fa0', size: 11 },
+  tbd:    { label: 'Dates TBA',    detail: 'check site',        color: '#9a9a9a', size: 11 },
+};
+function spanLen([s, e]) { return Math.round((isoToDate(e) - isoToDate(s)) / 864e5) + 1; }
+function openDayCount(m) { return m.spans.reduce((n, sp) => n + spanLen(sp), 0); }
+function durationKind(m) {
+  if (m.tbd) return 'tbd';
+  const longest = Math.max(...m.spans.map(spanLen));
+  if (m.spans.length >= 3 && longest === 1) return 'weekly';
+  if (longest >= 21) return 'long';
+  if (longest >= 5) return 'mid';
+  return 'short';
+}
+function durationText(m) {
+  const k = durationKind(m), n = openDayCount(m);
+  if (k === 'tbd') return 'dates TBA';
+  if (k === 'weekly') return `${n} single days`;
+  return (m.select ? 'select dates within ' : '') + `${n} day${n > 1 ? 's' : ''}` + (m.spans.length > 1 ? ` over ${m.spans.length} runs` : '');
+}

@@ -91,6 +91,11 @@ S.onPick.push(() => cards.forEach(c => Object.entries(c.dots).forEach(([id, d]) 
   if (S.isPicked(MARKETS[id])) d.setStyle({ color: '#d7263d', weight: 2.5 }); else d.setStyle({ color: '#fff', weight: 1 });
 })));
 
+S.onFilter.push(() => cards.forEach(c => {
+  let n = 0;
+  c.on.forEach(([m]) => { const ok = S.passes(m); c.dots[m.id].setStyle({ opacity: ok ? 1 : 0, fillOpacity: ok ? (m.select ? .45 : .9) : 0 }); if (ok) n++; });
+  c.card.querySelector('small').textContent = n + ' on';
+}));
 const now = cards.findIndex(c => c.days.includes(TODAY));
 selectWeek(now);
 setTimeout(() => { strip.scrollLeft = Math.max(0, cards[now].card.offsetLeft - 120); }, 50);

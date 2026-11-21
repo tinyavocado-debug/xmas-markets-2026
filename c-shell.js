@@ -12,7 +12,8 @@ const REGION_COLORS = {
   'Huron, Perth, Waterloo & Wellington': '#e08a00', 'Bruce, Grey & Simcoe': '#2a6fdb', 'Southwestern Ontario': '#8c5a2b',
   'Southeastern Ontario': '#0f9fa8', 'Kawarthas & Northumberland': '#c2477a', 'Niagara': '#6a8f1f', 'Northeastern Ontario': '#33415c'
 };
-const col = m => REGION_COLORS[m.region];
+const COLOR_MODE = new URLSearchParams(location.search).get('color') === 'region' ? 'region' : 'duration';
+const col = m => COLOR_MODE === 'region' ? REGION_COLORS[m.region] : DURATIONS[durationKind(m)].color;
 const DAYS = seasonDays(), N = DAYS.length, TODAY = todayIso();
 const openOn = (m, d) => ['open', 'maybe'].includes(dayStatus(m, d));
 
@@ -26,7 +27,9 @@ const Shell = {
   init({ hint = '' } = {}) {
     document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1>${navHtml()}<span class="hint">${hint}</span></header>`);
     document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div></div>
-      <ul id="stops"></ul><div class="legend">${Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')}
+      <ul id="stops"></ul><div class="legend">${COLOR_MODE === 'region'
+        ? Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
+        : Object.values(DURATIONS).map(d => `<span><i style="background:${d.color}"></i>${d.label} <span style="opacity:.6">(${d.detail})</span></span>`).join('')}
       <span><i style="background:repeating-linear-gradient(45deg,#999 0 2px,#fff 2px 4px)"></i>select dates</span></div></aside>`);
     const map = this.map = L.map('map');
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 16 }).addTo(map);
@@ -35,14 +38,43 @@ const Shell = {
     this.route = L.polyline([], { color: '#d7263d', weight: 3, dashArray: '8 8' }).addTo(map);
     this.sleigh = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="sleigh">🛷</div>', iconSize: [30, 30], iconAnchor: [-4, 30] }), interactive: false });
     this.markers = MARKETS.map(m => {
-      const mk = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: '', html: `<div class="dot" style="background:${col(m)}"></div>`, iconSize: [14, 14] }) }).addTo(map);
-      mk.bindTooltip(`<b>${m.name}</b><br>${m.city} · ${m.when}`, { direction: 'top', offset: [0, -8] });
+      const k = durationKind(m), sz = DURATIONS[k].size;
+      const mk = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: '', html: `<div class="dot k-${k}" style="background:${col(m)};width:${sz}px;height:${sz}px"></div>`, iconSize: [sz + 4, sz + 4] }) }).addTo(map);
+      mk.bindTooltip(`<b>${m.name}</b><br>${m.city} · ${m.when}<br><span class="mono" style="font-size:11px">${DURATIONS[k].label} · ${durationText(m)}</span>`, { direction: 'top', offset: [0, -8] });
+      mk.baseZ = -sz * 10; mk.setZIndexOffset(mk.baseZ); // small pins sit above big ones
       mk.on('click', () => this.toggle(m));
       mk.on('mouseover', () => this.hl(m, true)); mk.on('mouseout', () => this.hl(m, false));
       return mk;
     });
+    this.addFilter();
     this.draw();
     return this;
+  },
+  // duration filter + colour switch, as a map control
+  kind: null, onFilter: [],
+  passes(m) { return !this.kind || durationKind(m) === this.kind; },
+  addFilter() {
+    const ctl = L.control({ position: 'topright' });
+    ctl.onAdd = () => {
+      const d = L.DomUtil.create('div', 'durctl');
+      L.DomEvent.disableClickPropagation(d);
+      const count = k => MARKETS.filter(m => durationKind(m) === k).length;
+      const other = new URLSearchParams(location.search); other.set('color', COLOR_MODE === 'region' ? 'duration' : 'region');
+      d.innerHTML = `<div class="chips"><b>How long?</b>
+        <button data-k="" class="on">All ${MARKETS.length}</button>
+        ${['long', 'mid', 'short', 'weekly'].map(k => `<button data-k="${k}" title="${DURATIONS[k].detail}"><i class="sw k-${k}" style="background:${DURATIONS[k].color}"></i>${DURATIONS[k].label} ${count(k)}</button>`).join('')}</div>
+        <div class="sub">Pin size = how long it runs · colour by <a href="?${other}">${COLOR_MODE === 'region' ? 'duration' : 'region'}</a> instead</div>`;
+      d.querySelectorAll('button').forEach(b => b.onclick = () => {
+        this.kind = this.kind === b.dataset.k || !b.dataset.k ? null : b.dataset.k;
+        d.querySelectorAll('button').forEach(x => x.classList.toggle('on', (x.dataset.k || null) === this.kind));
+        MARKETS.forEach(m => this.markers[m.id].getElement().classList.toggle('gone', !this.passes(m) && !this.isPicked(m)));
+        this.onFilter.forEach(f => f());
+      });
+      return d;
+    };
+    ctl.addTo(this.map);
+    const want = new URLSearchParams(location.search).get('kind');
+    if (want) setTimeout(() => ctl.getContainer().querySelector(`button[data-k="${want}"]`)?.click(), 0);
   },
   // southern Ontario; the two northern markets sit just off the top edge
   fitSouth() { this.map.fitBounds(L.latLngBounds(MARKETS.filter(m => m.lat < 46).map(m => [m.lat, m.lng])), { padding: [20, 20] }); },
@@ -56,7 +88,8 @@ const Shell = {
     MARKETS.forEach(m => {
       const el = this.pin(m), k = p.indexOf(m);
       el.classList.toggle('picked', k >= 0); el.textContent = k >= 0 ? k + 1 : '';
-      this.markers[m.id].setZIndexOffset(k >= 0 ? 1000 : 0);
+      this.markers[m.id].setZIndexOffset(k >= 0 ? 1000 : this.markers[m.id].baseZ);
+      if (k >= 0) this.markers[m.id].getElement().classList.remove('gone');
     });
     this.route.setLatLngs(p.map(m => [m.lat, m.lng]));
     if (p.length) this.sleigh.setLatLng([p.at(-1).lat, p.at(-1).lng]).addTo(this.map); else this.sleigh.remove();
