@@ -43,7 +43,6 @@
   .row.hl { background: #fff1d6; }
   .row.dim { opacity: .28; }
   .row.picked .name { color: var(--red); font-weight: 600; }
-  .row.picked .name::before { content: '🛷 '; }
   .row .name { font-size: 12.5px; padding: 4px 8px 4px 12px; white-space: nowrap; overflow: hidden; }
   .row .name small { font: 10.5px 'DM Mono', monospace; opacity: .6; margin-left: 4px; }
   .track { position: relative; height: 24px; cursor: crosshair; }
@@ -53,6 +52,11 @@
   .grid-lines { position: absolute; top: 0; bottom: 0; left: 300px; right: 0; pointer-events: none; z-index: 1; }
   .grid-lines .wkend { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.035); }
   .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
+  .tripmark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--tc); opacity: .85; }
+  .tripmark.on { border-left-style: solid; border-left-width: 3px; opacity: 1; }
+  .months span.triplbl { border: 0; top: 15px; height: auto; background: var(--tc); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; transform: translateX(-50%); z-index: 2; pointer-events: auto; cursor: pointer; }
+  .row.picked .nm { color: var(--ink); }
+  .row .dayb { display: inline-block; font: 9.5px/14px 'DM Mono', monospace; color: #fff; padding: 0 4px; border-radius: 3px; margin-right: 3px; }
   #brush { position: absolute; top: 0; bottom: 0; background: rgba(27,127,91,.14); border-left: 2px solid var(--green); border-right: 2px solid var(--green); display: none; }
   .empty-note { padding: 30px; text-align: center; opacity: .6; font-size: 13px; }
 </style>
@@ -65,7 +69,7 @@
   <div id="tl"></div>
 </div>
 <script>
-const S = Shell.init({ hint: 'Pan/zoom the map to filter places · drag across the timeline to filter dates' });
+const S = Shell.init({ hint: 'Pan/zoom the map to filter places · drag across the timeline to filter dates · plan several days in the sleigh' });
 const REGION_ORDER = ['Southwestern Ontario', 'Huron, Perth, Waterloo & Wellington', 'Bruce, Grey & Simcoe', 'Niagara', 'Greater Toronto Area',
   'York, Durham & Headwaters', 'Kawarthas & Northumberland', 'Southeastern Ontario', 'Ottawa Region', 'Northeastern Ontario'];
 const pct = i => i / N * 100;
@@ -109,7 +113,31 @@ S.onHl.push((m, on) => {
   r.classList.toggle('hl', on);
   if (on && !r.matches(':hover') && r.style.display !== 'none') r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 });
-S.onPick.push(() => rows.forEach(r => r.classList.toggle('picked', S.isPicked(MARKETS[+r.dataset.id]))));
+// show which day(s) each market is planned for, and mark each day's date on the timeline
+function drawTrips() {
+  rows.forEach(r => {
+    const m = MARKETS[+r.dataset.id];
+    r.classList.toggle('picked', S.isPicked(m));
+    const nm = r.querySelector('.nm');
+    nm.querySelectorAll('.dayb').forEach(x => x.remove());
+    S.trips.forEach((t, i) => { if (t.stops.includes(m)) nm.insertAdjacentHTML('afterbegin', `<span class="dayb" style="background:${t.color}" title="Planned for Day ${i + 1}">D${i + 1}</span>`); });
+  });
+  const gl = document.getElementById('gl'), sc = document.getElementById('scale');
+  gl.querySelectorAll('.tripmark').forEach(x => x.remove()); sc.querySelectorAll('.triplbl').forEach(x => x.remove());
+  S.trips.forEach((t, i) => {
+    if (!t.date) return;
+    const x = pct(DAYS.indexOf(t.date) + .5);
+    gl.insertAdjacentHTML('beforeend', `<div class="tripmark ${t === S.active ? 'on' : ''}" style="--tc:${t.color};left:${x}%"></div>`);
+    sc.insertAdjacentHTML('beforeend', `<span class="triplbl" data-i="${i}" style="--tc:${t.color};left:${x}%" title="Day ${i + 1}: ${fmt(t.date)}">D${i + 1}</span>`);
+  });
+  sc.querySelectorAll('.triplbl').forEach(l => l.onmousedown = e => { e.stopPropagation(); S.activate(S.trips[+l.dataset.i]); });
+}
+S.onPick.push(drawTrips);
+// picking a day jumps the date brush to it, so you see what's open that day
+S.onActivate.push(t => { if (t?.date) { const i = DAYS.indexOf(t.date); brush = [i, i]; update(); } });
+// a new day starts on the brushed day (if one day is brushed)
+S.suggestDate = () => brush && brush[0] === brush[1] ? DAYS[brush[0]] : null;
+drawTrips();
 S.onFilter.push(() => update());
 
 // --- brushing dates ---
@@ -124,7 +152,12 @@ tl.addEventListener('mousedown', e => {
   dragStart = dayAt(e.clientX); brush = [dragStart, dragStart]; update();
 });
 addEventListener('mousemove', e => { if (dragStart === null) return; const d = dayAt(e.clientX); brush = [Math.min(dragStart, d), Math.max(dragStart, d)]; update(); });
-addEventListener('mouseup', () => { dragStart = null; });
+addEventListener('mouseup', () => {
+  if (dragStart === null) return;
+  dragStart = null;
+  // brushing a single day while the current day-trip has no date gives it that date
+  if (brush && brush[0] === brush[1] && !S.active.date) { S.active.date = DAYS[brush[0]]; S.draw(); }
+});
 
 // --- map view filter + combine ---
 function update() {
@@ -152,7 +185,7 @@ function update() {
      <b>${both} market${both === 1 ? '' : 's'} match</b>
      ${brush ? '<button id="clrD">clear dates</button>' : ''}
      ${inView.size < MARKETS.length ? '<button id="clrM">show all of Ontario</button>' : ''}`;
-  document.querySelectorAll('.grp button').forEach(b => b.onclick = () => { groupBy = b.dataset.g; build(); update(); });
+  document.querySelectorAll('.grp button').forEach(b => b.onclick = () => { groupBy = b.dataset.g; build(); drawTrips(); update(); });
   document.getElementById('clrD')?.addEventListener('click', () => { brush = null; update(); });
   document.getElementById('clrM')?.addEventListener('click', () => S.map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [20, 20] }));
 }
@@ -190,6 +223,7 @@ S.map.on('moveend', update);
   addEventListener('resize', () => { const cur = parseInt(main.style.getPropertyValue('--maph')); if (cur) setH(cur); refreshMap(); });
 })();
 update();
+if (S.active.date) S.onActivate.forEach(f => f(S.active)); // shared link with a dated day: start on it
 </script>
 </body>
 </html>

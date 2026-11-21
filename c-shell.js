@@ -22,12 +22,18 @@ function navHtml() {
   return '<nav>' + C_VARIANTS.map(([f, l]) => `<a href="${f}" class="${f === here ? 'on' : ''}">${l}</a>`).join('') + '</nav>';
 }
 
+const TRIP_COLORS = ['#d7263d', '#2a6fdb', '#7b3fa0', '#0f9fa8', '#e08a00', '#1d2a24'];
+const shortDay = d => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
+
 const Shell = {
-  picked: [], onHl: [], onPick: [],
+  // multi-day sleigh: each trip = one day out, with its own stops and route
+  trips: [], active: null, onHl: [], onPick: [], onActivate: [],
+  suggestDate: () => null, // a variant can propose a date for a new day (e.g. the brushed day)
+  get picked() { return this.active ? this.active.stops : []; },
   init({ hint = '' } = {}) {
     document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1>${navHtml()}<span class="hint">${hint}</span></header>`);
-    document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div><a id="groute" target="_blank" rel="noopener"></a></div>
-      <ul id="stops"></ul><div class="legend">${COLOR_MODE === 'region'
+    document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div></div>
+      <div id="trips"></div><div class="legend">${COLOR_MODE === 'region'
         ? Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
         : Object.values(DURATIONS).map(d => `<span><i style="background:${d.color}"></i>${d.label} <span style="opacity:.6">(${d.detail})</span></span>`).join('')}
       <span><i style="background:repeating-linear-gradient(45deg,#999 0 2px,#fff 2px 4px)"></i>select dates</span></div></aside>`);
@@ -35,7 +41,7 @@ const Shell = {
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 16 }).addTo(map);
     L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, pane: 'overlayPane' }).addTo(map);
     this.fitSouth();
-    this.route = L.polyline([], { color: '#d7263d', weight: 3, dashArray: '8 8' }).addTo(map);
+    this.routes = L.layerGroup().addTo(map);
     this.sleigh = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="sleigh">🛷</div>', iconSize: [30, 30], iconAnchor: [-4, 30] }), interactive: false });
     this.markers = MARKETS.map(m => {
       const k = durationKind(m), sz = DURATIONS[k].size;
@@ -47,8 +53,13 @@ const Shell = {
       return mk;
     });
     this.addFilter();
-    // ?stops=3,20,23 preloads the sleigh (shareable route)
-    (new URLSearchParams(location.search).get('stops') || '').split(',').filter(Boolean).forEach(i => MARKETS[+i] && this.picked.push(MARKETS[+i]));
+    // ?trips=2026-12-01:20,23|2026-12-06:3,5 preloads the sleigh (shareable); legacy ?stops=3,20 = one undated day
+    const q = new URLSearchParams(location.search);
+    const ids = str => (str || '').split(',').filter(x => MARKETS[+x]).map(x => MARKETS[+x]);
+    if (q.get('trips')) q.get('trips').split('|').forEach(t => { const [d, st] = t.split(':'); this.newTrip(DAYS.includes(d) ? d : null, ids(st)); });
+    else if (q.get('stops')) this.newTrip(null, ids(q.get('stops')));
+    if (!this.trips.length) this.newTrip(null);
+    this.active = this.trips[0];
     this.draw();
     return this;
   },
@@ -83,39 +94,104 @@ const Shell = {
   pin(m) { return this.markers[m.id].getElement().firstChild; },
   dim(ids) { MARKETS.forEach(m => this.pin(m).classList.toggle('dim', ids ? !ids.has(m.id) : false)); },
   hl(m, on) { this.pin(m).classList.toggle('hl', on); this.onHl.forEach(f => f(m, on)); },
-  toggle(m) { const i = this.picked.indexOf(m); i >= 0 ? this.picked.splice(i, 1) : this.picked.push(m); this.draw(); },
-  isPicked(m) { return this.picked.includes(m); },
+  newTrip(date, stops = []) {
+    const used = this.trips.map(t => t.color);
+    const color = TRIP_COLORS.find(c => !used.includes(c)) || TRIP_COLORS[this.trips.length % TRIP_COLORS.length];
+    const t = { date, stops, color };
+    this.trips.push(t);
+    return t;
+  },
+  activate(t) { this.active = t; this.draw(); this.onActivate.forEach(f => f(t)); },
+  toggle(m) { const p = this.active.stops, i = p.indexOf(m); i >= 0 ? p.splice(i, 1) : p.push(m); this.draw(); },
+  isPicked(m) { return this.trips.some(t => t.stops.includes(m)); },
+  tripKm(t) { let km = 0; for (let i = 1; i < t.stops.length; i++) km += haversineKm(t.stops[i - 1], t.stops[i]); return km; },
   draw() {
-    const p = this.picked;
+    // earliest date first; undated days at the end
+    this.trips.sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : (a.date || '9') > (b.date || '9') ? 1 : 0);
+    const A = this.active;
+
+    // pins: numbered in the colour of their day (active day wins)
     MARKETS.forEach(m => {
-      const el = this.pin(m), k = p.indexOf(m);
-      el.classList.toggle('picked', k >= 0); el.textContent = k >= 0 ? k + 1 : '';
-      this.markers[m.id].setZIndexOffset(k >= 0 ? 1000 : this.markers[m.id].baseZ);
-      if (k >= 0) this.markers[m.id].getElement().classList.remove('gone');
+      const el = this.pin(m), t = A.stops.includes(m) ? A : this.trips.find(t => t.stops.includes(m));
+      el.classList.toggle('picked', !!t); el.classList.toggle('other', !!t && t !== A);
+      el.textContent = t ? t.stops.indexOf(m) + 1 : '';
+      el.style.setProperty('--tc', t ? t.color : '');
+      this.markers[m.id].setZIndexOffset(t ? (t === A ? 2000 : 1000) : this.markers[m.id].baseZ);
+      if (t) this.markers[m.id].getElement().classList.remove('gone');
     });
-    this.route.setLatLngs(p.map(m => [m.lat, m.lng]));
-    if (p.length) this.sleigh.setLatLng([p.at(-1).lat, p.at(-1).lng]).addTo(this.map); else this.sleigh.remove();
-    let km = 0; for (let i = 1; i < p.length; i++) km += haversineKm(p[i - 1], p[i]);
-    document.getElementById('km').innerHTML = p.length > 1 ? `<b>${Math.round(km)} km</b> as the reindeer flies · ${p.length} stops`
-      : p.length ? '1 stop loaded. Add another.' : 'Empty. The reindeer are waiting.';
-    const ul = document.getElementById('stops');
-    ul.innerHTML = p.length ? '' : '<li class="empty">Click any market (on the map or in the view below) to load it onto your sleigh.</li>';
-    p.forEach(m => {
-      const li = document.createElement('li');
-      li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small><span class="lnk">${m.url ? `<a href="${m.url}" target="_blank" rel="noopener">🌐 website</a>` : '<span title="The source page gives no link">no site listed</span>'}<a href="${gmapsUrl(m)}" target="_blank" rel="noopener">📍 Google Maps</a></span><button title="Remove">✕</button>`;
-      li.querySelector('button').onclick = () => this.toggle(m);
-      li.onmouseenter = () => this.hl(m, true); li.onmouseleave = () => this.hl(m, false);
-      ul.appendChild(li);
+
+    // routes: every day drawn, the active one bold
+    this.routes.clearLayers();
+    this.trips.forEach(t => {
+      if (t.stops.length > 1) L.polyline(t.stops.map(m => [m.lat, m.lng]), { color: t.color, weight: t === A ? 4 : 2.5, opacity: t === A ? 1 : .55, dashArray: t === A ? '8 8' : '3 7', interactive: false }).addTo(this.routes);
     });
-    const g = document.getElementById('groute');
-    g.style.display = p.length ? '' : 'none';
-    if (p.length === 1) { g.href = gmapsUrl(p[0]); g.textContent = '📍 Open in Google Maps'; }
-    else if (p.length > 1) {
-      g.href = routeUrl(p.slice(0, 11));
-      g.textContent = p.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : `🚗 Open route in Google Maps`;
-    }
+    if (A.stops.length) this.sleigh.setLatLng([A.stops.at(-1).lat, A.stops.at(-1).lng]).addTo(this.map); else this.sleigh.remove();
+
+    // header summary
+    const all = this.trips.reduce((n, t) => n + t.stops.length, 0), km = this.trips.reduce((n, t) => n + this.tripKm(t), 0);
+    document.getElementById('km').innerHTML = all
+      ? `<b>${this.trips.length} day${this.trips.length > 1 ? 's' : ''}</b> · ${all} stop${all > 1 ? 's' : ''}${km ? ` · ${Math.round(km)} km as the reindeer flies` : ''}`
+      : 'Empty. The reindeer are waiting.';
+
+    // day cards
+    const box = document.getElementById('trips');
+    box.innerHTML = '';
+    this.trips.forEach((t, ti) => {
+      const card = document.createElement('div');
+      card.className = 'trip' + (t === A ? ' on' : '');
+      card.style.setProperty('--tc', t.color);
+      const tkm = this.tripKm(t);
+      card.innerHTML = `<div class="th">
+          <span class="tag">Day ${ti + 1}</span>
+          <input type="date" min="${SEASON_START}" max="${SEASON_END}" value="${t.date || ''}" title="Which day is this trip?">
+          <span class="tkm">${t.date ? shortDay(t.date).split(',')[0] : 'pick a date'}${tkm ? ' · ' + Math.round(tkm) + ' km' : ''}</span>
+          ${this.trips.length > 1 ? '<button class="del" title="Remove this day">✕</button>' : ''}
+        </div><ol class="tstops"></ol>`;
+      const ol = card.querySelector('ol');
+      if (!t.stops.length) ol.innerHTML = `<li class="empty">${t !== A ? 'No stops yet. Click this card, then add markets.'
+        : !t.date ? 'Pick a date above (or click a day on the timeline), then click markets to add them.' : 'Click markets on the map or timeline to add them to this day.'}</li>`;
+      t.stops.forEach(m => {
+        const st = t.date ? dayStatus(m, t.date) : null;
+        const warn = st === 'closed' ? `<span class="warn">⚠ not open ${shortDay(t.date)}</span>`
+          : st === 'maybe' ? '<span class="warn soft">select dates: check it’s open that day</span>'
+          : st === 'tbd' ? '<span class="warn soft">dates TBA</span>' : '';
+        const li = document.createElement('li');
+        li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small>${warn}<span class="lnk">${m.url ? `<a href="${m.url}" target="_blank" rel="noopener">🌐 website</a>` : '<span title="The source page gives no link">no site listed</span>'}<a href="${gmapsUrl(m)}" target="_blank" rel="noopener">📍 Google Maps</a></span><button class="rm" title="Remove">✕</button>`;
+        li.querySelector('.rm').onclick = e => { e.stopPropagation(); t.stops.splice(t.stops.indexOf(m), 1); this.draw(); };
+        li.onmouseenter = () => this.hl(m, true); li.onmouseleave = () => this.hl(m, false);
+        ol.appendChild(li);
+      });
+      if (t.stops.length) {
+        const g = document.createElement('a');
+        g.className = 'groute'; g.target = '_blank'; g.rel = 'noopener';
+        g.href = t.stops.length === 1 ? gmapsUrl(t.stops[0]) : routeUrl(t.stops.slice(0, 11));
+        g.textContent = t.stops.length === 1 ? '📍 Open in Google Maps' : t.stops.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : `🚗 Day ${ti + 1} route in Google Maps`;
+        card.appendChild(g);
+      }
+      card.onclick = e => { if (t !== A && !e.target.closest('a, input, button')) this.activate(t); };
+      card.querySelector('input').onchange = e => { t.date = DAYS.includes(e.target.value) ? e.target.value : null; this.active = t; this.draw(); this.onActivate.forEach(f => f(t)); };
+      card.querySelector('.del')?.addEventListener('click', e => {
+        e.stopPropagation();
+        if (t.stops.length && !confirm(`Remove Day ${ti + 1} and its ${t.stops.length} stop(s)?`)) return;
+        this.trips.splice(this.trips.indexOf(t), 1);
+        if (this.active === t) this.active = this.trips[0];
+        this.draw(); this.onActivate.forEach(f => f(this.active));
+      });
+      box.appendChild(card);
+    });
+    const add = document.createElement('button');
+    add.id = 'addday'; add.textContent = '+ Add another day';
+    add.onclick = () => {
+      const taken = this.trips.map(t => t.date);
+      const d = this.suggestDate(); // the brushed day, if it isn't already planned
+      this.activate(this.newTrip(d && !taken.includes(d) ? d : null));
+    };
+    box.appendChild(add);
+
+    // shareable URL
     const q = new URLSearchParams(location.search);
-    p.length ? q.set('stops', p.map(m => m.id).join(',')) : q.delete('stops');
+    q.delete('stops');
+    all || this.trips.some(t => t.date) ? q.set('trips', this.trips.map(t => `${t.date || 'x'}:${t.stops.map(m => m.id).join(',')}`).join('|')) : q.delete('trips');
     history.replaceState(null, '', '?' + q);
     this.onPick.forEach(f => f());
   },
