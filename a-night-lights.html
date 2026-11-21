@@ -101,9 +101,8 @@
 const DAYS = seasonDays();
 const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([44.3, -79.3], 7);
 L.control.zoom({ position: 'bottomleft' }).addTo(map);
-L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-  attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 18
-}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 16 }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, pane: 'overlayPane' }).addTo(map);
 map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { paddingTopLeft: [40, 120], paddingBottomRight: [340, 160] });
 
 const markers = MARKETS.map(m => {

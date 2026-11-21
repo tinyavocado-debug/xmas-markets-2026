@@ -89,7 +89,8 @@ const col = m => REGION_COLORS[m.region];
 const picked = [];
 
 const map = L.map('map');
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 18 }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 16 }).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, pane: 'overlayPane' }).addTo(map);
 map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [30, 30] });
 const route = L.polyline([], { color: '#d7263d', weight: 3, dashArray: '8 8' }).addTo(map);
 const sleigh = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="sleigh">🛷</div>', iconSize: [30, 30], iconAnchor: [-4, 30] }), interactive: false });

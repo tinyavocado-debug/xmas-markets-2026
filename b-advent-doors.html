@@ -89,8 +89,8 @@
 <script>
 const DAYS = seasonDays();
 const TODAY = todayIso();
-const map = L.map('map', { zoomSnap: .25 });
-L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 18 }).addTo(map);
+const map = L.map('map');
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors', maxZoom: 18 }).addTo(map);
 map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [40, 40] });
 
 const cabin = (roof, wall) => `<svg width="30" height="34" viewBox="0 0 30 34">
