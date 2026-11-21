@@ -11,7 +11,7 @@
 <style>
   :root { --bg: #fbf6ee; --ink: #1d2a24; --red: #d7263d; --green: #1b7f5b; --line: #e6dccb; }
   html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Space Grotesk', system-ui, sans-serif; }
-  body { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 56px 50vh 1fr; height: 100vh; }
+  body { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 56px 44vh 1fr; height: 100vh; }
   header { grid-column: 1 / 3; display: flex; align-items: center; gap: 16px; padding: 0 22px; border-bottom: 3px solid var(--ink);
     background: repeating-linear-gradient(-45deg, var(--red) 0 14px, #fff 14px 28px); }
   header h1 { margin: 0; font-size: 22px; background: var(--ink); color: #fff; padding: 4px 12px; border-radius: 6px; letter-spacing: .5px; }
@@ -19,26 +19,45 @@
   #map { grid-column: 1; grid-row: 2; border-bottom: 3px solid var(--ink); }
   #ticket { grid-column: 2; grid-row: 2 / 4; border-left: 3px solid var(--ink); display: flex; flex-direction: column; background: #fff; }
 
-  /* timeline */
-  #tl { grid-column: 1; grid-row: 3; overflow-y: auto; position: relative; }
-  .tl-head { position: sticky; top: 0; z-index: 5; background: var(--bg); display: grid; grid-template-columns: 250px 1fr; border-bottom: 2px solid var(--ink); }
-  .tl-head .months { position: relative; height: 34px; font-family: 'DM Mono', monospace; font-size: 11px; }
-  .tl-head .months span { position: absolute; top: 4px; padding-left: 4px; border-left: 1px solid var(--ink); height: 26px; }
-  .tl-head .label { font-size: 11px; padding: 10px 12px; font-family: 'DM Mono', monospace; text-transform: uppercase; }
-  .row { display: grid; grid-template-columns: 250px 1fr; cursor: pointer; border-bottom: 1px solid var(--line); }
-  .row:hover, .row.hl { background: #fff1d6; }
-  .row.picked { background: #e3f3ea; }
-  .row .name { font-size: 12.5px; padding: 5px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .row .name small { font-family: 'DM Mono', monospace; font-size: 10.5px; opacity: .6; margin-left: 4px; }
-  .row .track { position: relative; height: 26px; }
-  .bar { position: absolute; top: 6px; height: 14px; border-radius: 7px; min-width: 6px; }
-  .bar.select { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 4px, transparent 4px 8px) !important; }
-  .tbd { position: absolute; top: 6px; left: 6px; font-family: 'DM Mono', monospace; font-size: 10.5px; opacity: .6; }
-  .grid-lines { position: absolute; top: 0; bottom: 0; left: 250px; right: 0; pointer-events: none; }
-  .grid-lines .wk { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.035); }
-  .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); z-index: 4; }
-  .tl-head .months span.todaylbl { border: 0; top: 17px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; transform: translateX(-30%); }
-  .grid-lines .xmas { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(var(--green) 0 4px, transparent 4px 8px); }
+  /* calendar */
+  #cal { grid-column: 1; grid-row: 3; display: grid; grid-template-columns: 1fr 300px; min-height: 0; }
+  .month { display: flex; flex-direction: column; padding: 10px 14px 12px; min-height: 0; }
+  .mhead { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .mhead h3 { margin: 0; font-size: 20px; min-width: 170px; }
+  .mhead button { border: 2px solid var(--ink); background: #fff; border-radius: 6px; width: 30px; height: 28px; cursor: pointer; font-size: 15px; }
+  .mhead button:disabled { opacity: .25; cursor: default; }
+  .mhead .tip { margin-left: auto; font-family: 'DM Mono', monospace; font-size: 11px; opacity: .6; }
+  .grid { flex: 1; display: grid; grid-template-columns: repeat(7, 1fr); grid-auto-rows: 1fr; gap: 4px; min-height: 0; }
+  .dow { font-family: 'DM Mono', monospace; font-size: 10.5px; text-transform: uppercase; opacity: .55; text-align: left; padding-left: 4px; align-self: end; }
+  .day { background: #fff; border: 1.5px solid var(--line); border-radius: 7px; padding: 3px 5px; cursor: pointer; position: relative; overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+  .day.out { background: transparent; border-color: transparent; cursor: default; }
+  .day:not(.out):hover { border-color: var(--ink); }
+  .day.sel { border: 2.5px solid var(--ink); box-shadow: 3px 3px 0 var(--ink); }
+  .day.today .n::after { content: 'TODAY'; margin-left: 5px; font: 8.5px 'DM Mono', monospace; background: var(--red); color: #fff; padding: 1px 3px; border-radius: 3px; vertical-align: 2px; }
+  .day.xmas .n::after { content: '★'; color: var(--green); margin-left: 4px; }
+  .day .n { font-weight: 700; font-size: 13px; display: flex; align-items: baseline; }
+  .day .n small { margin-left: auto; font: 10px 'DM Mono', monospace; opacity: .55; font-weight: 400; }
+  .dots { display: flex; flex-wrap: wrap; gap: 2px; }
+  .cdot { width: 8px; height: 8px; border-radius: 50%; transition: transform .12s, opacity .12s; }
+  .cdot.maybe { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.75) 0 1.5px, transparent 1.5px 3px) !important; }
+  .cdot.pk { box-shadow: 0 0 0 1.5px #fff, 0 0 0 3px var(--red); }
+  #cal.focus .cdot { opacity: .15; }
+  #cal.focus .cdot.hl { opacity: 1; transform: scale(1.6); }
+  .aboard { position: absolute; right: 4px; bottom: 3px; font: 9.5px 'DM Mono', monospace; padding: 1px 4px; border-radius: 3px; background: #eee; }
+  .aboard.all { background: var(--green); color: #fff; }
+
+  #daylist { border-left: 2px solid var(--ink); display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
+  #daylist h4 { margin: 0; padding: 12px 14px 8px; font-size: 15px; border-bottom: 1px solid var(--line); }
+  #daylist h4 small { display: block; font: 11px 'DM Mono', monospace; opacity: .6; font-weight: 400; margin-top: 2px; }
+  #dl { overflow-y: auto; flex: 1; }
+  .dm { display: flex; align-items: center; gap: 8px; padding: 6px 14px; font-size: 12.5px; border-bottom: 1px solid var(--line); cursor: pointer; }
+  .dm:hover, .dm.hl { background: #fff1d6; }
+  .dm i { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+  .dm span { flex: 1; min-width: 0; }
+  .dm small { display: block; font: 10.5px 'DM Mono', monospace; opacity: .6; }
+  .dm b { font: 11px 'DM Mono', monospace; border: 1.5px solid var(--ink); border-radius: 5px; padding: 1px 6px; background: #fff; white-space: nowrap; }
+  .dm.pk b { background: var(--red); color: #fff; border-color: var(--red); }
+  .dm.note { cursor: default; font: 10.5px 'DM Mono', monospace; opacity: .6; display: block; line-height: 1.4; }
 
   /* ticket */
   #ticket .stub { padding: 18px 18px 12px; border-bottom: 2px dashed var(--ink); }
@@ -65,10 +84,17 @@
 <body>
 <header>
   <h1>🛷 Sleigh Route</h1>
-  <span class="hint">Click a market (pin or bar) to load it onto your sleigh</span>
+  <span class="hint">Pick a day, then load markets onto your sleigh (or click pins on the map)</span>
 </header>
 <div id="map"></div>
-<div id="tl"></div>
+<div id="cal">
+  <div class="month">
+    <div class="mhead"><button id="prev">‹</button><h3 id="mtitle"></h3><button id="next">›</button>
+      <span class="tip">hover a pin to see its days · striped = select dates</span></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div id="daylist"><h4 id="dlh"></h4><div id="dl"></div></div>
+</div>
 <aside id="ticket">
   <div class="stub">
     <h2>Your sleigh</h2>
@@ -91,7 +117,8 @@ const picked = [];
 const map = L.map('map');
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { attribution: 'Tiles © Esri — Esri, HERE, Garmin, © OpenStreetMap contributors', maxZoom: 16 }).addTo(map);
 L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Reference/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16, pane: 'overlayPane' }).addTo(map);
-map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [30, 30] });
+// fit to southern Ontario; the two northern markets sit just off the top (pan up to see them)
+map.fitBounds(L.latLngBounds(MARKETS.filter(m => m.lat < 46).map(m => [m.lat, m.lng])), { padding: [20, 20] });
 const route = L.polyline([], { color: '#d7263d', weight: 3, dashArray: '8 8' }).addTo(map);
 const sleigh = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="sleigh">🛷</div>', iconSize: [30, 30], iconAnchor: [-4, 30] }), interactive: false });
 
@@ -103,33 +130,80 @@ const markers = MARKETS.map(m => {
   return mk;
 });
 
-// timeline
-const tl = document.getElementById('tl');
-const pct = iso => DAYS.indexOf(iso) / N * 100;
-let head = '<div class="tl-head"><div class="label">Market · sorted by start</div><div class="months">';
-DAYS.forEach((d, i) => { if (d.endsWith('-01')) head += `<span style="left:${i / N * 100}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`; });
-head += `<span class="todaylbl" style="left:${pct(TODAY)}%">TODAY</span>`;
-head += '</div></div>';
-let lines = '<div class="grid-lines">';
-DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) lines += `<div class="wk" style="left:${i / N * 100}%;width:${2 / N * 100}%"></div>`; });
-lines += `<div class="today" style="left:${(pct(TODAY) + .5 / N * 100)}%"></div><div class="xmas" style="left:${pct('2026-12-25')}%"></div></div>`;
-const sorted = [...MARKETS].sort((a, b) => (a.spans[0]?.[0] ?? '9') < (b.spans[0]?.[0] ?? '9') ? -1 : 1);
-tl.innerHTML = '<div style="position:relative">' + head + lines + sorted.map(m => {
-  const bars = m.tbd ? '<span class="tbd">dates TBA — check site</span>' : m.spans.map(([s, e]) =>
-    `<div class="bar ${m.select ? 'select' : ''}" style="background:${col(m)};left:${pct(s)}%;width:${(DAYS.indexOf(e) - DAYS.indexOf(s) + 1) / N * 100}%"></div>`).join('');
-  return `<div class="row" data-id="${m.id}" title="${m.name} — ${m.when}"><div class="name">${m.name}<small>${m.city}</small></div><div class="track">${bars}</div></div>`;
-}).join('') + '</div>';
-tl.querySelectorAll('.row').forEach(r => {
-  const m = MARKETS[+r.dataset.id];
-  r.onclick = () => toggle(m);
-  r.onmouseenter = () => hl(m, true); r.onmouseleave = () => hl(m, false);
-});
+// calendar
+const calEl = document.getElementById('cal');
+const MONTHS = [...new Set(DAYS.map(d => d.slice(0, 7)))];
+let monthIdx = MONTHS.indexOf(TODAY.slice(0, 7)), selDay = TODAY;
+const onDay = d => MARKETS.map(m => [m, dayStatus(m, d)]).filter(([, st]) => st === 'open' || st === 'maybe');
+
+function renderMonth() {
+  const ym = MONTHS[monthIdx], days = DAYS.filter(d => d.startsWith(ym));
+  document.getElementById('mtitle').textContent = fmt(days[0], { month: 'long', year: 'numeric' });
+  document.getElementById('prev').disabled = monthIdx === 0;
+  document.getElementById('next').disabled = monthIdx === MONTHS.length - 1;
+  const g = document.getElementById('grid');
+  g.innerHTML = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(x => `<div class="dow">${x}</div>`).join('');
+  const first = isoToDate(ym + '-01'), lead = (first.getDay() + 6) % 7;
+  const dim = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const weeks = Math.ceil((lead + dim) / 7);
+  g.style.gridTemplateRows = `auto repeat(${weeks}, 1fr)`;
+  for (let i = 0; i < weeks * 7; i++) {
+    const dn = i - lead + 1, iso = ym + '-' + String(dn).padStart(2, '0');
+    const cell = document.createElement('div');
+    if (dn < 1 || dn > dim || !days.includes(iso)) { cell.className = 'day out'; g.appendChild(cell); continue; }
+    const list = onDay(iso);
+    cell.className = 'day' + (iso === TODAY ? ' today' : '') + (iso === '2026-12-25' ? ' xmas' : '') + (iso === selDay ? ' sel' : '');
+    cell.dataset.d = iso;
+    cell.innerHTML = `<div class="n">${dn}<small>${list.length || ''}</small></div><div class="dots">${
+      list.map(([m, st]) => `<i class="cdot ${st}" data-id="${m.id}" style="background-color:${col(m)}"></i>`).join('')}</div>`;
+    cell.onclick = () => { selDay = iso; renderMonth(); renderDay(); };
+    g.appendChild(cell);
+  }
+  markPicked();
+}
+document.getElementById('prev').onclick = () => { monthIdx--; renderMonth(); };
+document.getElementById('next').onclick = () => { monthIdx++; renderMonth(); };
+
+function renderDay() {
+  const list = onDay(selDay).sort((a, b) => (a[1] === b[1] ? 0 : a[1] === 'open' ? -1 : 1));
+  document.getElementById('dlh').innerHTML = `${fmt(selDay)}<small>${list.length} market${list.length === 1 ? '' : 's'} on${list.some(x => x[1] === 'maybe') ? ' (incl. select-dates)' : ''}</small>`;
+  const dl = document.getElementById('dl');
+  dl.innerHTML = list.length ? '' : '<div class="dm note">Nothing on this day.</div>';
+  list.forEach(([m, st]) => {
+    const r = document.createElement('div');
+    r.className = 'dm'; r.dataset.id = m.id;
+    r.innerHTML = `<i style="background:${col(m)}"></i><span>${m.name}<small>${m.city}${st === 'maybe' ? ' · select dates, check site' : ''}</small></span><b></b>`;
+    r.onclick = () => toggle(m);
+    r.onmouseenter = () => hl(m, true); r.onmouseleave = () => hl(m, false);
+    dl.appendChild(r);
+  });
+  const tbd = MARKETS.filter(m => m.tbd);
+  if (tbd.length) dl.insertAdjacentHTML('beforeend', `<div class="dm note">Not on the calendar, dates TBA: ${tbd.map(m => m.name).join(', ')}</div>`);
+  // fade pins not on this day
+  const ids = new Set(list.map(([m]) => m.id));
+  MARKETS.forEach(m => { markers[m.id].getElement().style.opacity = ids.has(m.id) || picked.includes(m) ? 1 : .3; });
+  markPicked();
+}
+
+function markPicked() {
+  document.querySelectorAll('.cdot').forEach(d => d.classList.toggle('pk', picked.some(m => m.id === +d.dataset.id)));
+  document.querySelectorAll('.dm[data-id]').forEach(r => {
+    const on = picked.some(m => m.id === +r.dataset.id);
+    r.classList.toggle('pk', on); r.querySelector('b').textContent = on ? '✓ on sleigh' : '+ sleigh';
+  });
+  document.querySelectorAll('.day[data-d]').forEach(c => {
+    c.querySelector('.aboard')?.remove();
+    if (picked.length < 2) return;
+    const n = picked.filter(m => ['open', 'maybe'].includes(dayStatus(m, c.dataset.d))).length;
+    if (n) c.insertAdjacentHTML('beforeend', `<span class="aboard ${n === picked.length ? 'all' : ''}">${n === picked.length ? 'all aboard' : n + '/' + picked.length}</span>`);
+  });
+}
 
 function hl(m, on) {
   markers[m.id].getElement().firstChild.classList.toggle('hl', on);
-  const r = tl.querySelector(`.row[data-id="${m.id}"]`);
-  r.classList.toggle('hl', on);
-  if (on && !r.matches(':hover')) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  calEl.classList.toggle('focus', on);
+  document.querySelectorAll(`.cdot[data-id="${m.id}"]`).forEach(d => d.classList.toggle('hl', on));
+  document.querySelector(`.dm[data-id="${m.id}"]`)?.classList.toggle('hl', on);
 }
 
 function toggle(m) {
@@ -143,16 +217,16 @@ function draw() {
     const el = markers[m.id].getElement().firstChild, k = picked.indexOf(m);
     el.classList.toggle('picked', k >= 0); el.textContent = k >= 0 ? k + 1 : '';
     markers[m.id].setZIndexOffset(k >= 0 ? 1000 : 0);
-    tl.querySelector(`.row[data-id="${m.id}"]`).classList.toggle('picked', k >= 0);
   });
   route.setLatLngs(picked.map(m => [m.lat, m.lng]));
+  renderDay();
   if (picked.length) sleigh.setLatLng([picked.at(-1).lat, picked.at(-1).lng]).addTo(map); else sleigh.remove();
   let km = 0; for (let i = 1; i < picked.length; i++) km += haversineKm(picked[i - 1], picked[i]);
   document.getElementById('km').innerHTML = picked.length > 1
     ? `<b>${Math.round(km)} km</b> as the reindeer flies · ${picked.length} stops`
     : picked.length ? '1 stop loaded. Add another.' : 'Empty. The reindeer are waiting.';
   const ul = document.getElementById('stops');
-  ul.innerHTML = picked.length ? '' : '<li class="empty">Click pins on the map or bars in the timeline. Stops are joined in the order you add them, so you can see whether the dates line up.</li>';
+  ul.innerHTML = picked.length ? '' : '<li class="empty">Pick a day on the calendar and add markets, or click pins on the map. Once you have 2+ stops, the calendar marks the days when they are all open.</li>';
   picked.forEach(m => {
     const li = document.createElement('li');
     li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small><button title="Remove">✕</button>`;
@@ -161,6 +235,7 @@ function draw() {
     ul.appendChild(li);
   });
 }
+renderMonth();
 draw();
 
 document.getElementById('legend').innerHTML = Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
