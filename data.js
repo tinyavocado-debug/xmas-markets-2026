@@ -53,7 +53,7 @@ const MARKETS = [
 
   // Southwestern Ontario
   { name: 'Holly Jolly Holiday Market', city: 'London', region: 'Southwestern Ontario', venue: 'Covent Garden Market, 130 King St', when: 'Dec 4 – 20', url: 'https://coventmarket.com/event/2026-events-at-the-market/', blurb: 'Outdoors and up on the mezzanine: cocktails, hot chocolate, kids crafts, live bands.', lat: 42.9837, lng: -81.2496, spans: [['2026-12-04', '2026-12-20']] },
-  { name: 'Merry Market at 100 Kellogg Lane', city: 'London', region: 'Southwestern Ontario', venue: '100 Kellogg Lane', when: 'Nov/Dec — dates TBA', url: 'https://100kellogglane.com/', blurb: 'Free market of local vendors, food artisans and young entrepreneurs.', lat: 42.9830, lng: -81.2240, spans: [], tbd: true },
+  { name: 'Merry Market at 100 Kellogg Lane', city: 'London', region: 'Southwestern Ontario', venue: '100 Kellogg Lane', when: 'Fri–Sun, Nov 27 – Dec 20 (part of Merry Ment)', url: 'https://100kellogglane.com/events/merry-ment', blurb: 'Free market of local vendors, food artisans and young entrepreneurs.', lat: 42.9830, lng: -81.2240, spans: [['2026-11-27', '2026-11-29'], ['2026-12-04', '2026-12-06'], ['2026-12-11', '2026-12-13'], ['2026-12-18', '2026-12-20']], datesFrom: 'official site' },
   { name: 'Dresden Christmas Night Market', city: 'Dresden', region: 'Southwestern Ontario', venue: 'Downtown Dresden', when: 'Nov 28', url: 'https://night-market.ca/', blurb: 'Award-winning night market on pedestrian-only streets with a pop-up bar.', lat: 42.5890, lng: -82.1810, spans: one('2026-11-28') },
 
   // Southeastern Ontario
