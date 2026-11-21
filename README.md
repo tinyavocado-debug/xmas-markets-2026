@@ -1,6 +1,6 @@
 # 🛷 Sleigh Route: Ontario holiday markets 2026
 
-An interactive map and timeline of the 40 holiday markets listed by
+An interactive map and timeline of the holiday markets listed by
 [Destination Ontario](https://www.destinationontario.com/en-ca/articles/festive-holiday-markets-ontario).
 See where they are, when they run (all season, a week or two, or just a weekend), and plan day trips.
 
