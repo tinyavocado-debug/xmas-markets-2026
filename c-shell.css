@@ -37,15 +37,19 @@ header .hint { background: #fff; padding: 4px 10px; border-radius: 6px; font-siz
 
 /* duration filter control */
 .durctl { background: #fff; border: 2px solid var(--ink); border-radius: 10px; padding: 7px 9px 6px; font-family: 'Space Grotesk', sans-serif; box-shadow: 3px 3px 0 var(--ink); }
-.durctl .chips { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-.durctl b { font-size: 12px; margin-right: 2px; }
-.durctl button { font: 12px 'Space Grotesk', sans-serif; border: 1.5px solid var(--line); background: #fff; border-radius: 14px; padding: 2px 9px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.durctl { width: 168px; }
+.durctl .chips { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
+.durctl b { font-size: 12.5px; margin: 0 0 2px 2px; }
+.durctl button { font: 12px 'Space Grotesk', sans-serif; border: 1.5px solid var(--line); background: #fff; border-radius: 14px; padding: 3px 9px; cursor: pointer; display: flex; align-items: center; gap: 6px; text-align: left; }
+.durctl button .n { margin-left: auto; font: 11px 'DM Mono', monospace; opacity: .6; }
+.durctl button.on .n { opacity: .8; }
+.durctl .sw { flex: none; }
 .durctl button:hover { border-color: var(--ink); }
 .durctl button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .durctl .sw { display: inline-block; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.2); }
 .durctl .sw.k-long { width: 13px; height: 13px; } .durctl .sw.k-mid { width: 10px; height: 10px; }
 .durctl .sw.k-short { width: 7px; height: 7px; } .durctl .sw.k-weekly { width: 7px; height: 7px; outline: 1.5px dashed #7b3fa0; outline-offset: 1px; }
-.durctl .sub { font: 10.5px 'DM Mono', monospace; opacity: .7; margin-top: 4px; }
+.durctl .sub { font: 10px 'DM Mono', monospace; opacity: .7; margin-top: 7px; line-height: 1.4; }
 .durctl .sub a { color: var(--red); }
 
 
