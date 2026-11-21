@@ -31,7 +31,7 @@ const Shell = {
   suggestDate: () => null, // a variant can propose a date for a new day (e.g. the brushed day)
   get picked() { return this.active ? this.active.stops : []; },
   init({ hint = '' } = {}) {
-    document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1>${navHtml()}<span class="hint">${hint}</span></header>`);
+    document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1><span class="hint">${hint}</span></header>`);
     document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div></div>
       <div id="trips"></div><div class="legend">${COLOR_MODE === 'region'
         ? Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
