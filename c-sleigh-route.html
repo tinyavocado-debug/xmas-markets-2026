@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleigh Route · Ontario holiday markets</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<script src="data.js"></script>
+<style>
+  :root { --bg: #fbf6ee; --ink: #1d2a24; --red: #d7263d; --green: #1b7f5b; --line: #e6dccb; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: 'Space Grotesk', system-ui, sans-serif; }
+  body { display: grid; grid-template-columns: 1fr 320px; grid-template-rows: 56px 50vh 1fr; height: 100vh; }
+  header { grid-column: 1 / 3; display: flex; align-items: center; gap: 16px; padding: 0 22px; border-bottom: 3px solid var(--ink);
+    background: repeating-linear-gradient(-45deg, var(--red) 0 14px, #fff 14px 28px); }
+  header h1 { margin: 0; font-size: 22px; background: var(--ink); color: #fff; padding: 4px 12px; border-radius: 6px; letter-spacing: .5px; }
+  header .hint { background: #fff; padding: 4px 10px; border-radius: 6px; font-size: 13px; border: 2px solid var(--ink); }
+  #map { grid-column: 1; grid-row: 2; border-bottom: 3px solid var(--ink); }
+  #ticket { grid-column: 2; grid-row: 2 / 4; border-left: 3px solid var(--ink); display: flex; flex-direction: column; background: #fff; }
+
+  /* timeline */
+  #tl { grid-column: 1; grid-row: 3; overflow-y: auto; position: relative; }
+  .tl-head { position: sticky; top: 0; z-index: 5; background: var(--bg); display: grid; grid-template-columns: 250px 1fr; border-bottom: 2px solid var(--ink); }
+  .tl-head .months { position: relative; height: 34px; font-family: 'DM Mono', monospace; font-size: 11px; }
+  .tl-head .months span { position: absolute; top: 4px; padding-left: 4px; border-left: 1px solid var(--ink); height: 26px; }
+  .tl-head .label { font-size: 11px; padding: 10px 12px; font-family: 'DM Mono', monospace; text-transform: uppercase; }
+  .row { display: grid; grid-template-columns: 250px 1fr; cursor: pointer; border-bottom: 1px solid var(--line); }
+  .row:hover, .row.hl { background: #fff1d6; }
+  .row.picked { background: #e3f3ea; }
+  .row .name { font-size: 12.5px; padding: 5px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .name small { font-family: 'DM Mono', monospace; font-size: 10.5px; opacity: .6; margin-left: 4px; }
+  .row .track { position: relative; height: 26px; }
+  .bar { position: absolute; top: 6px; height: 14px; border-radius: 7px; min-width: 6px; }
+  .bar.select { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 4px, transparent 4px 8px) !important; }
+  .tbd { position: absolute; top: 6px; left: 6px; font-family: 'DM Mono', monospace; font-size: 10.5px; opacity: .6; }
+  .grid-lines { position: absolute; top: 0; bottom: 0; left: 250px; right: 0; pointer-events: none; }
+  .grid-lines .wk { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.035); }
+  .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); z-index: 4; }
+  .tl-head .months span.todaylbl { border: 0; top: 17px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; transform: translateX(-30%); }
+  .grid-lines .xmas { position: absolute; top: 0; bottom: 0; width: 2px; background: repeating-linear-gradient(var(--green) 0 4px, transparent 4px 8px); }
+
+  /* ticket */
+  #ticket .stub { padding: 18px 18px 12px; border-bottom: 2px dashed var(--ink); }
+  #ticket h2 { margin: 0; font-size: 20px; }
+  #ticket .km { font-family: 'DM Mono', monospace; font-size: 12px; margin-top: 6px; }
+  #ticket .km b { font-size: 22px; color: var(--red); }
+  #stops { list-style: none; margin: 0; padding: 8px 0; overflow-y: auto; flex: 1; counter-reset: s; }
+  #stops li { padding: 9px 18px 9px 48px; position: relative; border-bottom: 1px solid var(--line); font-size: 13.5px; }
+  #stops li::before { counter-increment: s; content: counter(s); position: absolute; left: 14px; top: 9px; width: 22px; height: 22px; border-radius: 50%; background: var(--red); color: #fff; font: 12px/22px 'DM Mono', monospace; text-align: center; }
+  #stops li small { display: block; font-family: 'DM Mono', monospace; font-size: 11px; opacity: .65; margin-top: 2px; }
+  #stops li button { position: absolute; right: 12px; top: 10px; border: 0; background: none; cursor: pointer; font-size: 14px; opacity: .5; }
+  #stops .empty { padding: 30px 22px; opacity: .6; font-size: 13.5px; line-height: 1.5; }
+  #stops .empty::before { display: none; }
+  .legend { padding: 12px 18px; border-top: 2px solid var(--ink); font-size: 11px; display: flex; flex-wrap: wrap; gap: 4px 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 4px; vertical-align: -1px; }
+
+  .dot { width: 14px; height: 14px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0,0,0,.4); transition: transform .15s; }
+  .dot.hl { transform: scale(1.7); }
+  .dot.picked { background: var(--red) !important; color: #fff; font: 10px/14px 'DM Mono', monospace; text-align: center; width: 18px; height: 18px; line-height: 18px; margin: -2px; }
+  .sleigh { font-size: 30px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.3)); transform: scaleX(-1); }
+  .leaflet-tooltip { font-family: 'Space Grotesk', sans-serif; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🛷 Sleigh Route</h1>
+  <span class="hint">Click a market (pin or bar) to load it onto your sleigh</span>
+</header>
+<div id="map"></div>
+<div id="tl"></div>
+<aside id="ticket">
+  <div class="stub">
+    <h2>Your sleigh</h2>
+    <div class="km" id="km"></div>
+  </div>
+  <ul id="stops"></ul>
+  <div class="legend" id="legend"></div>
+</aside>
+
+<script>
+const DAYS = seasonDays(), N = DAYS.length, TODAY = todayIso();
+const REGION_COLORS = {
+  'Greater Toronto Area': '#d7263d', 'Ottawa Region': '#7b3fa0', 'York, Durham & Headwaters': '#1b7f5b',
+  'Huron, Perth, Waterloo & Wellington': '#e08a00', 'Bruce, Grey & Simcoe': '#2a6fdb', 'Southwestern Ontario': '#8c5a2b',
+  'Southeastern Ontario': '#0f9fa8', 'Kawarthas & Northumberland': '#c2477a', 'Niagara': '#6a8f1f', 'Northeastern Ontario': '#33415c'
+};
+const col = m => REGION_COLORS[m.region];
+const picked = [];
+
+const map = L.map('map');
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 18 }).addTo(map);
+map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [30, 30] });
+const route = L.polyline([], { color: '#d7263d', weight: 3, dashArray: '8 8' }).addTo(map);
+const sleigh = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="sleigh">🛷</div>', iconSize: [30, 30], iconAnchor: [-4, 30] }), interactive: false });
+
+const markers = MARKETS.map(m => {
+  const mk = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: '', html: `<div class="dot" style="background:${col(m)}"></div>`, iconSize: [14, 14] }) }).addTo(map);
+  mk.bindTooltip(`<b>${m.name}</b><br>${m.city} · ${m.when}`, { direction: 'top', offset: [0, -8] });
+  mk.on('click', () => toggle(m));
+  mk.on('mouseover', () => hl(m, true)); mk.on('mouseout', () => hl(m, false));
+  return mk;
+});
+
+// timeline
+const tl = document.getElementById('tl');
+const pct = iso => DAYS.indexOf(iso) / N * 100;
+let head = '<div class="tl-head"><div class="label">Market · sorted by start</div><div class="months">';
+DAYS.forEach((d, i) => { if (d.endsWith('-01')) head += `<span style="left:${i / N * 100}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`; });
+head += `<span class="todaylbl" style="left:${pct(TODAY)}%">TODAY</span>`;
+head += '</div></div>';
+let lines = '<div class="grid-lines">';
+DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) lines += `<div class="wk" style="left:${i / N * 100}%;width:${2 / N * 100}%"></div>`; });
+lines += `<div class="today" style="left:${(pct(TODAY) + .5 / N * 100)}%"></div><div class="xmas" style="left:${pct('2026-12-25')}%"></div></div>`;
+const sorted = [...MARKETS].sort((a, b) => (a.spans[0]?.[0] ?? '9') < (b.spans[0]?.[0] ?? '9') ? -1 : 1);
+tl.innerHTML = '<div style="position:relative">' + head + lines + sorted.map(m => {
+  const bars = m.tbd ? '<span class="tbd">dates TBA — check site</span>' : m.spans.map(([s, e]) =>
+    `<div class="bar ${m.select ? 'select' : ''}" style="background:${col(m)};left:${pct(s)}%;width:${(DAYS.indexOf(e) - DAYS.indexOf(s) + 1) / N * 100}%"></div>`).join('');
+  return `<div class="row" data-id="${m.id}" title="${m.name} — ${m.when}"><div class="name">${m.name}<small>${m.city}</small></div><div class="track">${bars}</div></div>`;
+}).join('') + '</div>';
+tl.querySelectorAll('.row').forEach(r => {
+  const m = MARKETS[+r.dataset.id];
+  r.onclick = () => toggle(m);
+  r.onmouseenter = () => hl(m, true); r.onmouseleave = () => hl(m, false);
+});
+
+function hl(m, on) {
+  markers[m.id].getElement().firstChild.classList.toggle('hl', on);
+  const r = tl.querySelector(`.row[data-id="${m.id}"]`);
+  r.classList.toggle('hl', on);
+  if (on && !r.matches(':hover')) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function toggle(m) {
+  const i = picked.indexOf(m);
+  i >= 0 ? picked.splice(i, 1) : picked.push(m);
+  draw();
+}
+
+function draw() {
+  MARKETS.forEach(m => {
+    const el = markers[m.id].getElement().firstChild, k = picked.indexOf(m);
+    el.classList.toggle('picked', k >= 0); el.textContent = k >= 0 ? k + 1 : '';
+    markers[m.id].setZIndexOffset(k >= 0 ? 1000 : 0);
+    tl.querySelector(`.row[data-id="${m.id}"]`).classList.toggle('picked', k >= 0);
+  });
+  route.setLatLngs(picked.map(m => [m.lat, m.lng]));
+  if (picked.length) sleigh.setLatLng([picked.at(-1).lat, picked.at(-1).lng]).addTo(map); else sleigh.remove();
+  let km = 0; for (let i = 1; i < picked.length; i++) km += haversineKm(picked[i - 1], picked[i]);
+  document.getElementById('km').innerHTML = picked.length > 1
+    ? `<b>${Math.round(km)} km</b> as the reindeer flies · ${picked.length} stops`
+    : picked.length ? '1 stop loaded. Add another.' : 'Empty. The reindeer are waiting.';
+  const ul = document.getElementById('stops');
+  ul.innerHTML = picked.length ? '' : '<li class="empty">Click pins on the map or bars in the timeline. Stops are joined in the order you add them, so you can see whether the dates line up.</li>';
+  picked.forEach(m => {
+    const li = document.createElement('li');
+    li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small><button title="Remove">✕</button>`;
+    li.querySelector('button').onclick = () => toggle(m);
+    li.onmouseenter = () => hl(m, true); li.onmouseleave = () => hl(m, false);
+    ul.appendChild(li);
+  });
+}
+draw();
+
+document.getElementById('legend').innerHTML = Object.entries(REGION_COLORS).map(([r, c]) => `<span><i style="background:${c}"></i>${r}</span>`).join('')
+  + '<span><i style="background:repeating-linear-gradient(45deg,#999 0 2px,#fff 2px 4px)"></i>select dates</span>';
+</script>
+</body>
+</html>

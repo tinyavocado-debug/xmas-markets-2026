@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Night Lights · Ontario holiday markets</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;1,500&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<script src="data.js"></script>
+<style>
+  :root { --gold: #ffcf7a; --warm: #ff9f43; --ink: #0b1020; }
+  html, body { margin: 0; height: 100%; background: var(--ink); color: #e9ecf5; font-family: Inter, system-ui, sans-serif; overflow: hidden; }
+  #map { position: absolute; inset: 0; background: var(--ink); }
+  .leaflet-tile-pane { filter: brightness(.75) saturate(.6) hue-rotate(10deg); }
+  #snow { position: absolute; inset: 0; pointer-events: none; z-index: 500; }
+
+  .title { position: absolute; top: 22px; left: 28px; z-index: 600; pointer-events: none; }
+  .title h1 { font-family: 'Cormorant Garamond', serif; font-style: italic; font-weight: 500; font-size: 52px; margin: 0; color: var(--gold); text-shadow: 0 0 24px rgba(255,190,90,.55); letter-spacing: .5px; }
+  .title p { margin: 2px 0 0 4px; opacity: .65; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; }
+
+  /* the lights */
+  .light { width: 14px; height: 14px; border-radius: 50%; transform: translate(-1px,-1px); transition: all .5s ease; }
+  .light.open { background: radial-gradient(circle, #fff7e0 0%, var(--gold) 35%, rgba(255,160,60,0) 72%); width: 34px; height: 34px; margin: -10px; animation: twinkle 2.4s ease-in-out infinite; }
+  .light.maybe { background: radial-gradient(circle, #ffe9c4 0%, rgba(255,170,90,.6) 30%, rgba(255,160,60,0) 70%); width: 26px; height: 26px; margin: -6px; animation: flicker 3.2s steps(1) infinite; }
+  .light.closed { background: rgba(160,175,210,.28); width: 7px; height: 7px; margin: 3px; }
+  .light.tbd { border: 1.5px dashed rgba(255,207,122,.55); width: 9px; height: 9px; margin: 1px; }
+  @keyframes twinkle { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: .75; transform: scale(.86); } }
+  @keyframes flicker { 0%,100% { opacity: .9 } 20% { opacity: .35 } 24% { opacity: .9 } 61% { opacity: .5 } 64% { opacity: .9 } }
+
+  /* side list */
+  #tonight { position: absolute; top: 120px; right: 22px; bottom: 150px; width: 300px; z-index: 600; display: flex; flex-direction: column;
+    background: rgba(12,18,38,.72); backdrop-filter: blur(10px); border: 1px solid rgba(255,207,122,.18); border-radius: 16px; padding: 18px 18px 8px; }
+  #tonight h2 { margin: 0 0 2px; font-family: 'Cormorant Garamond', serif; font-weight: 500; font-size: 28px; color: var(--gold); }
+  #tonight .sub { font-size: 12px; opacity: .6; margin-bottom: 10px; }
+  #list { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+  #list li { padding: 9px 4px; border-top: 1px solid rgba(255,255,255,.07); cursor: pointer; font-size: 13.5px; }
+  #list li:hover { color: var(--gold); }
+  #list li small { display: block; opacity: .55; font-size: 11.5px; margin-top: 2px; }
+  #list li.maybe::before { content: '✦ '; color: #ffb877; }
+  #list li.open::before { content: '● '; color: var(--gold); }
+  #list li.sep { cursor: default; font-size: 11px; opacity: .5; text-transform: uppercase; letter-spacing: 1px; border: 0; padding-top: 14px; }
+
+  /* dock */
+  #dock { position: absolute; left: 28px; right: 22px; bottom: 22px; z-index: 600; display: flex; gap: 18px; align-items: center;
+    background: rgba(12,18,38,.78); backdrop-filter: blur(10px); border: 1px solid rgba(255,207,122,.18); border-radius: 18px; padding: 16px 24px; }
+  #play { width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--gold); color: var(--ink); font-size: 20px; cursor: pointer; flex: none; box-shadow: 0 0 22px rgba(255,190,90,.5); }
+  .scrub { flex: 1; }
+  #datebig { font-family: 'Cormorant Garamond', serif; font-size: 30px; color: #fff; }
+  #datebig span { color: var(--gold); font-style: italic; }
+  input[type=range] { width: 100%; -webkit-appearance: none; background: transparent; margin: 6px 0 0; }
+  input[type=range]::-webkit-slider-runnable-track { height: 6px; border-radius: 3px; background: linear-gradient(90deg, rgba(255,207,122,.15), rgba(255,207,122,.45)); }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; border-radius: 50%; margin-top: -8px; background: #fff7e0; box-shadow: 0 0 16px var(--gold); cursor: grab; }
+  .ticks { position: relative; height: 16px; font-size: 11px; opacity: .55; }
+  .ticks span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
+  .ticks span.today { color: var(--gold); opacity: 1; }
+  .legend { font-size: 11.5px; opacity: .7; line-height: 1.9; flex: none; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+
+  .leaflet-popup-content-wrapper { background: #131a33; color: #e9ecf5; border: 1px solid rgba(255,207,122,.3); border-radius: 12px; }
+  .leaflet-popup-tip { background: #131a33; }
+  .leaflet-popup-content h3 { margin: 0 0 4px; font-family: 'Cormorant Garamond', serif; font-size: 22px; color: var(--gold); font-weight: 500; }
+  .leaflet-popup-content .meta { font-size: 12px; opacity: .7; margin-bottom: 6px; }
+  .leaflet-popup-content a { color: var(--gold); }
+  .leaflet-container a.leaflet-popup-close-button { color: #fff; }
+  .leaflet-control-attribution { background: rgba(0,0,0,.4) !important; color: #889 !important; }
+  .leaflet-control-attribution a { color: #aab !important; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<canvas id="snow"></canvas>
+
+<header class="title">
+  <h1>Night Lights</h1>
+  <p>Ontario holiday markets · pick a night, see what’s glowing</p>
+</header>
+
+<aside id="tonight">
+  <h2 id="count"></h2>
+  <div class="sub" id="countsub"></div>
+  <ul id="list"></ul>
+</aside>
+
+<footer id="dock">
+  <button id="play" title="Play the season">▶</button>
+  <div class="scrub">
+    <div id="datebig"></div>
+    <input type="range" id="day" min="0" step="1">
+    <div class="ticks" id="ticks"></div>
+  </div>
+  <div class="legend">
+    <div><i style="background:var(--gold);box-shadow:0 0 8px var(--gold)"></i>open</div>
+    <div><i style="background:#ffb877;opacity:.7"></i>select dates — check site</div>
+    <div><i style="background:rgba(160,175,210,.4)"></i>not tonight</div>
+    <div><i style="border:1.5px dashed var(--gold)"></i>dates TBA</div>
+  </div>
+</footer>
+
+<script>
+const DAYS = seasonDays();
+const map = L.map('map', { zoomControl: false, attributionControl: true }).setView([44.3, -79.3], 7);
+L.control.zoom({ position: 'bottomleft' }).addTo(map);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '© OpenStreetMap © CARTO', subdomains: 'abcd', maxZoom: 18
+}).addTo(map);
+map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { paddingTopLeft: [40, 120], paddingBottomRight: [340, 160] });
+
+const markers = MARKETS.map(m => {
+  const mk = L.marker([m.lat, m.lng], { icon: L.divIcon({ className: '', html: '<div class="light"></div>', iconSize: [14, 14] }) }).addTo(map);
+  mk.bindPopup(`<h3>${m.name}</h3><div class="meta">${m.city} · ${m.venue}</div>
+    <div><b>${m.when}</b></div><p style="margin:6px 0">${m.blurb}</p>
+    ${m.url ? `<a href="${m.url}" target="_blank" rel="noopener">Market website →</a>` : '<i style="opacity:.6">No link on source page</i>'}`, { maxWidth: 280 });
+  return mk;
+});
+
+const slider = document.getElementById('day');
+slider.max = DAYS.length - 1;
+const ticks = document.getElementById('ticks');
+const TODAY = todayIso();
+DAYS.forEach((d, i) => {
+  const isToday = d === TODAY;
+  if (d.endsWith('-01') || isToday || d === '2026-12-25') {
+    const s = document.createElement('span');
+    s.style.left = (i / (DAYS.length - 1) * 100) + '%';
+    s.textContent = isToday ? 'tonight' : d === '2026-12-25' ? '🎄' : fmt(d, { month: 'short' });
+    if (isToday) s.className = 'today';
+    ticks.appendChild(s);
+  }
+});
+
+function render(i) {
+  const iso = DAYS[i];
+  document.getElementById('datebig').innerHTML = (iso === TODAY ? '<span>Tonight</span> · ' : '') + fmt(iso);
+  const open = [], maybe = [];
+  MARKETS.forEach((m, k) => {
+    const st = dayStatus(m, iso);
+    markers[k].getElement().firstChild.className = 'light ' + st;
+    markers[k].setZIndexOffset(st === 'open' ? 1000 : st === 'maybe' ? 500 : 0);
+    if (st === 'open') open.push(m); else if (st === 'maybe') maybe.push(m);
+  });
+  document.getElementById('count').textContent = open.length + (open.length === 1 ? ' light on' : ' lights on');
+  document.getElementById('countsub').textContent = maybe.length ? `+ ${maybe.length} that might be (select dates)` : 'across Ontario';
+  const ul = document.getElementById('list');
+  ul.innerHTML = '';
+  const add = (m, cls) => {
+    const li = document.createElement('li');
+    li.className = cls;
+    li.innerHTML = `${m.name}<small>${m.city} · ${m.when}</small>`;
+    li.onclick = () => { map.flyTo([m.lat, m.lng], 12, { duration: 1.2 }); setTimeout(() => markers[m.id].openPopup(), 1250); };
+    ul.appendChild(li);
+  };
+  open.forEach(m => add(m, 'open'));
+  if (maybe.length) { const s = document.createElement('li'); s.className = 'sep'; s.textContent = 'Select dates — check before you go'; ul.appendChild(s); }
+  maybe.forEach(m => add(m, 'maybe'));
+  if (!open.length && !maybe.length) ul.innerHTML = '<li class="sep">All dark tonight. Try another night.</li>';
+}
+slider.oninput = () => render(+slider.value);
+slider.value = DAYS.indexOf(TODAY);
+render(+slider.value);
+
+let timer = null;
+document.getElementById('play').onclick = function () {
+  if (timer) { clearInterval(timer); timer = null; this.textContent = '▶'; return; }
+  this.textContent = '❚❚';
+  if (+slider.value >= DAYS.length - 1) slider.value = 0;
+  timer = setInterval(() => {
+    if (+slider.value >= DAYS.length - 1) { this.click(); return; }
+    slider.value = +slider.value + 1; render(+slider.value);
+  }, 260);
+};
+
+// snow
+const cv = document.getElementById('snow'), cx = cv.getContext('2d');
+let W, H; const flakes = [];
+function size() { W = cv.width = innerWidth; H = cv.height = innerHeight; }
+size(); addEventListener('resize', size);
+for (let i = 0; i < 140; i++) flakes.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 1.8 + .4, s: Math.random() * .6 + .25, d: Math.random() * 6 });
+(function tick(t) {
+  cx.clearRect(0, 0, W, H); cx.fillStyle = 'rgba(255,255,255,.75)';
+  for (const f of flakes) {
+    f.y += f.s; f.x += Math.sin(t / 1600 + f.d) * .3;
+    if (f.y > H) { f.y = -4; f.x = Math.random() * W; }
+    cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, 7); cx.fill();
+  }
+  requestAnimationFrame(tick);
+})(0);
+</script>
+</body>
+</html>
