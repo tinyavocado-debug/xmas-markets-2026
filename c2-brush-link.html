@@ -26,10 +26,16 @@
   #tl { overflow-y: auto; position: relative; user-select: none; }
   .inner { position: relative; }
   .tl-head { position: sticky; top: 0; z-index: 6; background: var(--bg); display: grid; grid-template-columns: 300px 1fr; border-bottom: 2px solid var(--ink); }
-  .tl-head .label { font: 10.5px 'DM Mono', monospace; padding: 9px 12px; text-transform: uppercase; opacity: .7; }
-  .months { position: relative; height: 30px; font: 11px 'DM Mono', monospace; cursor: crosshair; }
-  .months span { position: absolute; top: 3px; padding-left: 4px; border-left: 1px solid var(--ink); height: 24px; pointer-events: none; }
-  .months span.todaylbl { border: 0; top: 15px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
+  .tl-head .label { font: 10.5px 'DM Mono', monospace; padding: 17px 12px; text-transform: uppercase; opacity: .7; }
+  .months { position: relative; height: 46px; font: 11px 'DM Mono', monospace; cursor: crosshair; }
+  .months span { position: absolute; pointer-events: none; }
+  .months .mo { top: 2px; padding-left: 4px; border-left: 1px solid var(--ink); height: 42px; font-weight: 600; }
+  .months .dn { top: 30px; transform: translateX(-50%); font-size: 9px; opacity: .45; }
+  .months .dn.we { opacity: 1; font-weight: 700; }
+  .months .dn.wk::before { content: ''; position: absolute; left: 50%; top: -4px; height: 3px; border-left: 1px solid var(--ink); opacity: .5; }
+  .months .hov { top: 13px; transform: translateX(-50%); background: var(--ink); color: #fff; font-size: 9.5px; padding: 1px 5px; border-radius: 3px; white-space: nowrap; z-index: 3; display: none; }
+  .grid-lines .hovline { position: absolute; top: 0; bottom: 0; width: 0; border-left: 1px dashed var(--ink); opacity: .5; display: none; }
+  .months span.todaylbl { top: 15px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
   .reg { font: 10.5px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px 3px; display: flex; align-items: center; gap: 6px; }
   .reg i { width: 9px; height: 9px; border-radius: 2px; }
   .row .name { display: flex; align-items: center; gap: 6px; }
@@ -54,7 +60,7 @@
   .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
   .tripmark { position: absolute; top: 0; bottom: 0; width: 0; border-left: 2px dashed var(--tc); opacity: .85; }
   .tripmark.on { border-left-style: solid; border-left-width: 3px; opacity: 1; }
-  .months span.triplbl { border: 0; top: 15px; height: auto; background: var(--tc); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; transform: translateX(-50%); z-index: 2; pointer-events: auto; cursor: pointer; }
+  .months span.triplbl { top: 15px; height: auto; background: var(--tc); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; transform: translateX(-50%); z-index: 2; pointer-events: auto; cursor: pointer; }
   .row.picked .nm { color: var(--ink); }
   .row .dayb { display: inline-block; font: 9.5px/14px 'DM Mono', monospace; color: #fff; padding: 0 4px; border-radius: 3px; margin-right: 3px; }
   #brush { position: absolute; top: 0; bottom: 0; background: rgba(27,127,91,.14); border-left: 2px solid var(--green); border-right: 2px solid var(--green); display: none; }
@@ -80,10 +86,15 @@ const tl = document.getElementById('tl');
 let groupBy = 'duration', rows = [];
 function build() {
   let html = `<div class="inner"><div class="tl-head"><div class="label">${groupBy === 'region' ? 'West → East' : 'Longest → shortest'}</div><div class="months" id="scale">`;
-  DAYS.forEach((d, i) => { if (d.endsWith('-01')) html += `<span style="left:${pct(i)}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`; });
+  DAYS.forEach((d, i) => {
+    if (d.endsWith('-01')) html += `<span class="mo" style="left:${pct(i)}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`;
+    const wd = isoToDate(d).getDay();
+    html += `<span class="dn ${wd === 0 || wd === 6 ? 'we' : ''} ${wd === 1 ? 'wk' : ''}" style="left:${pct(i + .5)}%">${+d.slice(8)}</span>`;
+  });
+  html += `<span class="hov" id="hov"></span>`;
   html += `<span class="todaylbl" style="left:${pct(DAYS.indexOf(TODAY))}%">TODAY</span></div></div><div class="grid-lines" id="gl">`;
   DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) html += `<div class="wkend" style="left:${pct(i)}%;width:${pct(2)}%"></div>`; });
-  html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div><div id="brush"></div></div>`;
+  html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div><div id="brush"></div><div class="hovline" id="hovline"></div></div>`;
   const groups = groupBy === 'region'
     ? REGION_ORDER.map(r => [r, REGION_COLORS[r], '', MARKETS.filter(m => m.region === r)])
     : Object.entries(DURATIONS).map(([k, d]) => [d.label, d.color, d.detail, MARKETS.filter(m => durationKind(m) === k)]);
@@ -151,6 +162,15 @@ tl.addEventListener('mousedown', e => {
   if (!e.target.closest('.track, .months')) return;
   dragStart = dayAt(e.clientX); brush = [dragStart, dragStart]; update();
 });
+// hover readout: hairline + exact date under the cursor
+tl.addEventListener('mousemove', e => {
+  const on = e.target.closest('.track, .months'), hov = document.getElementById('hov'), line = document.getElementById('hovline');
+  if (!on) { hov.style.display = line.style.display = 'none'; return; }
+  const i = dayAt(e.clientX), x = pct(i + .5) + '%';
+  hov.textContent = fmt(DAYS[i], { weekday: 'short', month: 'short', day: 'numeric' });
+  hov.style.left = line.style.left = x; hov.style.display = line.style.display = 'block';
+});
+tl.addEventListener('mouseleave', () => { document.getElementById('hov').style.display = document.getElementById('hovline').style.display = 'none'; });
 addEventListener('mousemove', e => { if (dragStart === null) return; const d = dayAt(e.clientX); brush = [Math.min(dragStart, d), Math.max(dragStart, d)]; update(); });
 addEventListener('mouseup', () => {
   if (dragStart === null) return;
