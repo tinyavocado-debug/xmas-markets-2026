@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sleigh Route · Week Strip</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="c-shell.css">
+<script src="data.js"></script>
+<script src="c-shell.js"></script>
+<style>
+  #main { display: grid; grid-template-rows: 1fr 252px; }
+  #map { border-bottom: 3px solid var(--ink); }
+  #strip { display: flex; gap: 12px; overflow-x: auto; padding: 12px 14px; align-items: stretch; }
+  .wk { flex: none; width: 236px; background: #fff; border: 2px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; cursor: pointer; transition: opacity .15s, transform .15s, border-color .15s; }
+  .wk:hover { border-color: var(--ink); }
+  .wk.sel { border-color: var(--ink); box-shadow: 4px 4px 0 var(--ink); transform: translateY(-2px); }
+  .wk.now .h b::after { content: 'THIS WEEK'; margin-left: 6px; font: 9px 'DM Mono', monospace; background: var(--red); color: #fff; padding: 1px 4px; border-radius: 3px; vertical-align: 2px; }
+  .wk.not { opacity: .3; }
+  .wk.has { border-color: var(--red); }
+  .wk .h { padding: 7px 10px 5px; font-size: 13.5px; display: flex; align-items: baseline; }
+  .wk .h small { margin-left: auto; font: 11px 'DM Mono', monospace; opacity: .6; }
+  .wk .mini { flex: 1; margin: 0 6px 6px; border-radius: 6px; background: #f0efec; }
+  .wk .mini .leaflet-control-container { display: none; }
+  .pk { position: absolute; }
+  #weekinfo { position: absolute; z-index: 600; left: 56px; top: 70px; background: #fff; border: 2px solid var(--ink); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+  #weekinfo button { margin-left: 8px; border: 1.5px solid var(--ink); background: #fff; border-radius: 5px; cursor: pointer; font-size: 11px; }
+</style>
+</head>
+<body>
+<div id="main">
+  <div id="map"></div>
+  <div id="strip"></div>
+</div>
+<div id="weekinfo"></div>
+<script>
+const S = Shell.init({ hint: 'Each card is one week. Click a week to filter the big map. Hover a pin to see its weeks.' });
+
+// 7-day chunks from Nov 1; fold the lone last day (Jan 3) into the previous week
+const weeks = [];
+for (let i = 0; i < N; i += 7) weeks.push(DAYS.slice(i, i + 7));
+if (weeks.at(-1).length < 3) weeks.at(-2).push(...weeks.pop());
+
+const southBounds = L.latLngBounds(MARKETS.filter(m => m.lat < 46).map(m => [m.lat, m.lng]));
+const strip = document.getElementById('strip');
+let selWeek = null;
+
+const cards = weeks.map((days, w) => {
+  // days open per market this week
+  const on = MARKETS.map(m => [m, days.filter(d => openOn(m, d)).length]).filter(([, n]) => n);
+  const card = document.createElement('div');
+  card.className = 'wk' + (days.includes(TODAY) ? ' now' : '');
+  const label = `${fmt(days[0], { month: 'short', day: 'numeric' })} – ${fmt(days.at(-1), days[0].slice(5, 7) === days.at(-1).slice(5, 7) ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+  card.innerHTML = `<div class="h"><b>${label}</b><small>${on.length} on</small></div><div class="mini"></div>`;
+  strip.appendChild(card);
+  const mm = L.map(card.querySelector('.mini'), { zoomControl: false, attributionControl: false, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false, touchZoom: false, zoomSnap: 0.25 });
+  L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}', { maxZoom: 16 }).addTo(mm);
+  mm.fitBounds(southBounds, { padding: [4, 4] });
+  const dots = {};
+  on.forEach(([m, n]) => {
+    dots[m.id] = L.circleMarker([m.lat, m.lng], { radius: 2.5 + n * .55, color: '#fff', weight: 1, fillColor: col(m), fillOpacity: m.select ? .45 : .9 })
+      .bindTooltip(`<b>${m.name}</b><br>${n} day${n > 1 ? 's' : ''} this week${m.select ? ' (select dates)' : ''}`, { direction: 'top' })
+      .on('click', e => { L.DomEvent.stopPropagation(e); S.toggle(m); })
+      .on('mouseover', () => S.hl(m, true)).on('mouseout', () => S.hl(m, false))
+      .addTo(mm);
+  });
+  card.onclick = () => selectWeek(selWeek === w ? null : w);
+  return { card, days, on, dots, mm };
+});
+
+function selectWeek(w) {
+  selWeek = w;
+  cards.forEach((c, i) => c.card.classList.toggle('sel', i === w));
+  const info = document.getElementById('weekinfo');
+  if (w === null) { S.dim(null); info.style.display = 'none'; return; }
+  const c = cards[w];
+  S.dim(new Set(c.on.map(([m]) => m.id)));
+  info.style.display = 'block';
+  info.innerHTML = `Showing week of <b>${c.card.querySelector('b').textContent}</b>, ${c.on.length} markets<button>show all</button>`;
+  info.querySelector('button').onclick = () => selectWeek(null);
+}
+
+S.onHl.push((m, on) => cards.forEach(c => {
+  const has = !!c.dots[m.id];
+  c.card.classList.toggle('has', on && has);
+  c.card.classList.toggle('not', on && !has);
+  if (has) c.dots[m.id].setStyle(on ? { color: '#1d2a24', weight: 2.5 } : { color: '#fff', weight: 1 }).bringToFront();
+}));
+S.onPick.push(() => cards.forEach(c => Object.entries(c.dots).forEach(([id, d]) => {
+  if (S.isPicked(MARKETS[id])) d.setStyle({ color: '#d7263d', weight: 2.5 }); else d.setStyle({ color: '#fff', weight: 1 });
+})));
+
+const now = cards.findIndex(c => c.days.includes(TODAY));
+selectWeek(now);
+setTimeout(() => { strip.scrollLeft = Math.max(0, cards[now].card.offsetLeft - 120); }, 50);
+</script>
+</body>
+</html>

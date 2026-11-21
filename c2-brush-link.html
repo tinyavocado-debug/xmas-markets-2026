@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sleigh Route · Brush & Link</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="c-shell.css">
+<script src="data.js"></script>
+<script src="c-shell.js"></script>
+<style>
+  #main { display: grid; grid-template-rows: 44% 34px 1fr; }
+  #map { border-bottom: 3px solid var(--ink); }
+  #bar { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 12.5px; border-bottom: 2px solid var(--ink); background: #fff; }
+  #bar .chip { font-family: 'DM Mono', monospace; font-size: 11.5px; padding: 2px 8px; border-radius: 12px; background: #f1ece2; }
+  #bar .chip.on { background: var(--ink); color: #fff; }
+  #bar button { border: 1.5px solid var(--ink); background: #fff; border-radius: 5px; cursor: pointer; font-size: 11px; padding: 2px 7px; }
+  #tl { overflow-y: auto; position: relative; user-select: none; }
+  .inner { position: relative; }
+  .tl-head { position: sticky; top: 0; z-index: 6; background: var(--bg); display: grid; grid-template-columns: 240px 1fr; border-bottom: 2px solid var(--ink); }
+  .tl-head .label { font: 10.5px 'DM Mono', monospace; padding: 9px 12px; text-transform: uppercase; opacity: .7; }
+  .months { position: relative; height: 30px; font: 11px 'DM Mono', monospace; cursor: crosshair; }
+  .months span { position: absolute; top: 3px; padding-left: 4px; border-left: 1px solid var(--ink); height: 24px; pointer-events: none; }
+  .months span.todaylbl { border: 0; top: 15px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
+  .reg { font: 10.5px 'DM Mono', monospace; text-transform: uppercase; letter-spacing: .5px; padding: 8px 12px 3px; display: flex; align-items: center; gap: 6px; }
+  .reg i { width: 9px; height: 9px; border-radius: 2px; }
+  .row { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--line); transition: opacity .15s; }
+  .row.hl { background: #fff1d6; }
+  .row.dim { opacity: .28; }
+  .row.picked .name { color: var(--red); font-weight: 600; }
+  .row.picked .name::before { content: '🛷 '; }
+  .row .name { font-size: 12.5px; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+  .row .name:hover { text-decoration: underline; }
+  .row .name small { font: 10.5px 'DM Mono', monospace; opacity: .6; margin-left: 4px; }
+  .track { position: relative; height: 24px; cursor: crosshair; }
+  .bar { position: absolute; top: 6px; height: 12px; border-radius: 6px; min-width: 6px; pointer-events: none; }
+  .bar.select { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 4px, transparent 4px 8px) !important; }
+  .tbd { position: absolute; top: 5px; left: 6px; font: 10.5px 'DM Mono', monospace; opacity: .6; pointer-events: none; }
+  .grid-lines { position: absolute; top: 0; bottom: 0; left: 240px; right: 0; pointer-events: none; z-index: 1; }
+  .grid-lines .wkend { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.035); }
+  .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
+  #brush { position: absolute; top: 0; bottom: 0; background: rgba(27,127,91,.14); border-left: 2px solid var(--green); border-right: 2px solid var(--green); display: none; }
+  .empty-note { padding: 30px; text-align: center; opacity: .6; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="main">
+  <div id="map"></div>
+  <div id="bar"></div>
+  <div id="tl"></div>
+</div>
+<script>
+const S = Shell.init({ hint: 'Pan/zoom the map to filter places · drag across the timeline to filter dates' });
+const REGION_ORDER = ['Southwestern Ontario', 'Huron, Perth, Waterloo & Wellington', 'Bruce, Grey & Simcoe', 'Niagara', 'Greater Toronto Area',
+  'York, Durham & Headwaters', 'Kawarthas & Northumberland', 'Southeastern Ontario', 'Ottawa Region', 'Northeastern Ontario'];
+const pct = i => i / N * 100;
+const first = m => m.spans[0]?.[0] ?? '9';
+
+// build timeline
+const tl = document.getElementById('tl');
+let html = '<div class="inner"><div class="tl-head"><div class="label">West → East</div><div class="months" id="scale">';
+DAYS.forEach((d, i) => { if (d.endsWith('-01')) html += `<span style="left:${pct(i)}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`; });
+html += `<span class="todaylbl" style="left:${pct(DAYS.indexOf(TODAY))}%">TODAY</span></div></div><div class="grid-lines" id="gl">`;
+DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) html += `<div class="wkend" style="left:${pct(i)}%;width:${pct(2)}%"></div>`; });
+html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div><div id="brush"></div></div>`;
+REGION_ORDER.forEach(r => {
+  const ms = MARKETS.filter(m => m.region === r).sort((a, b) => first(a) < first(b) ? -1 : 1);
+  html += `<div class="reg" data-r="${r}"><i style="background:${REGION_COLORS[r]}"></i>${r}</div>`;
+  ms.forEach(m => {
+    const bars = m.tbd ? '<span class="tbd">dates TBA, check site</span>' : m.spans.map(([s, e]) =>
+      `<div class="bar ${m.select ? 'select' : ''}" style="background:${col(m)};left:${pct(DAYS.indexOf(s))}%;width:${pct(DAYS.indexOf(e) - DAYS.indexOf(s) + 1)}%"></div>`).join('');
+    html += `<div class="row" data-id="${m.id}" data-r="${r}"><div class="name" title="Add to sleigh">${m.name}<small>${m.city}</small></div><div class="track">${bars}</div></div>`;
+  });
+});
+tl.innerHTML = html + '<div class="empty-note" id="none" style="display:none">No markets in this map view. Zoom out.</div></div>';
+const rows = [...tl.querySelectorAll('.row')];
+rows.forEach(r => {
+  const m = MARKETS[+r.dataset.id];
+  r.querySelector('.name').onclick = () => S.toggle(m);
+  r.onmouseenter = () => S.hl(m, true); r.onmouseleave = () => S.hl(m, false);
+});
+S.onHl.push((m, on) => {
+  const r = tl.querySelector(`.row[data-id="${m.id}"]`);
+  r.classList.toggle('hl', on);
+  if (on && !r.matches(':hover') && r.style.display !== 'none') r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+S.onPick.push(() => rows.forEach(r => r.classList.toggle('picked', S.isPicked(MARKETS[+r.dataset.id]))));
+S.draw();
+
+// --- brushing dates ---
+let brush = null; // [i0, i1]
+const brushEl = document.getElementById('brush');
+function dayAt(clientX) {
+  const rect = document.getElementById('scale').getBoundingClientRect();
+  return Math.max(0, Math.min(N - 1, Math.floor((clientX - rect.left) / rect.width * N)));
+}
+let dragStart = null;
+tl.addEventListener('mousedown', e => {
+  if (!e.target.closest('.track, .months')) return;
+  dragStart = dayAt(e.clientX); brush = [dragStart, dragStart]; update();
+});
+addEventListener('mousemove', e => { if (dragStart === null) return; const d = dayAt(e.clientX); brush = [Math.min(dragStart, d), Math.max(dragStart, d)]; update(); });
+addEventListener('mouseup', () => { dragStart = null; });
+
+// --- map view filter + combine ---
+function update() {
+  const b = S.map.getBounds();
+  const inView = new Set(MARKETS.filter(m => b.contains([m.lat, m.lng])).map(m => m.id));
+  const inDates = brush ? new Set(MARKETS.filter(m => DAYS.slice(brush[0], brush[1] + 1).some(d => openOn(m, d))).map(m => m.id)) : null;
+  rows.forEach(r => {
+    const id = +r.dataset.id;
+    r.style.display = inView.has(id) ? '' : 'none';
+    r.classList.toggle('dim', !!inDates && !inDates.has(id));
+  });
+  tl.querySelectorAll('.reg').forEach(h => { h.style.display = rows.some(r => r.dataset.r === h.dataset.r && r.style.display !== 'none') ? '' : 'none'; });
+  document.getElementById('none').style.display = inView.size ? 'none' : '';
+  S.dim(inDates);
+  if (brush) { brushEl.style.display = 'block'; brushEl.style.left = pct(brush[0]) + '%'; brushEl.style.width = pct(brush[1] - brush[0] + 1) + '%'; }
+  else brushEl.style.display = 'none';
+  const both = [...inView].filter(id => !inDates || inDates.has(id)).length;
+  const dateTxt = brush ? (brush[0] === brush[1] ? fmt(DAYS[brush[0]], { weekday: 'short', month: 'short', day: 'numeric' })
+    : fmt(DAYS[brush[0]], { month: 'short', day: 'numeric' }) + ' – ' + fmt(DAYS[brush[1]], { month: 'short', day: 'numeric' })) : 'any date';
+  document.getElementById('bar').innerHTML =
+    `<span class="chip ${inView.size < MARKETS.length ? 'on' : ''}">📍 ${inView.size === MARKETS.length ? 'all of Ontario' : inView.size + ' in map view'}</span>
+     <span class="chip ${brush ? 'on' : ''}">📅 ${dateTxt}</span>
+     <b>${both} market${both === 1 ? '' : 's'} match</b>
+     ${brush ? '<button id="clrD">clear dates</button>' : ''}
+     ${inView.size < MARKETS.length ? '<button id="clrM">show all of Ontario</button>' : ''}`;
+  document.getElementById('clrD')?.addEventListener('click', () => { brush = null; update(); });
+  document.getElementById('clrM')?.addEventListener('click', () => S.map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [20, 20] }));
+}
+S.map.on('moveend', update);
+update();
+</script>
+</body>
+</html>

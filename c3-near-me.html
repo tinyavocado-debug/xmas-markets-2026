@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sleigh Route · Near Me</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="c-shell.css">
+<script src="data.js"></script>
+<script src="c-shell.js"></script>
+<style>
+  #main { display: grid; grid-template-rows: 42% 40px 1fr; }
+  #map { border-bottom: 3px solid var(--ink); cursor: crosshair; }
+  #bar { display: flex; align-items: center; gap: 10px; padding: 0 12px; font-size: 13px; border-bottom: 2px solid var(--ink); background: #fff; }
+  #bar select { font: inherit; border: 2px solid var(--ink); border-radius: 6px; padding: 2px 6px; background: #fff; }
+  #bar .note { margin-left: auto; font: 11px 'DM Mono', monospace; opacity: .6; }
+  #chart { overflow-y: auto; position: relative; }
+  .inner { position: relative; }
+  .head { position: sticky; top: 0; z-index: 6; background: var(--bg); display: grid; grid-template-columns: 130px 1fr; border-bottom: 2px solid var(--ink); }
+  .head .label { font: 10.5px 'DM Mono', monospace; padding: 8px 10px; opacity: .7; }
+  .months { position: relative; height: 28px; font: 11px 'DM Mono', monospace; }
+  .months span { position: absolute; top: 3px; padding-left: 4px; border-left: 1px solid var(--ink); height: 22px; }
+  .months span.todaylbl { border: 0; top: 14px; height: auto; background: var(--red); color: #fff; font-size: 9px; padding: 1px 4px; border-radius: 3px; }
+  .band { position: relative; z-index: 2; display: grid; grid-template-columns: 130px 1fr; border-bottom: 2px solid #fff; }
+  .band .bl { padding: 8px 10px; font-size: 13px; font-weight: 600; display: flex; flex-direction: column; justify-content: center; }
+  .band .bl small { font: 10.5px 'DM Mono', monospace; font-weight: 400; opacity: .65; }
+  .band .lanes { position: relative; padding: 5px 0; }
+  .lane { position: relative; height: 21px; }
+  .bar { position: absolute; top: 2px; height: 17px; border-radius: 9px; min-width: 9px; cursor: pointer; color: #fff; font-size: 10.5px; line-height: 17px;
+    padding: 0 6px; box-sizing: border-box; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: transform .12s; }
+  .bar.select { background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.4) 0 4px, transparent 4px 8px) !important; }
+  .bar.gap { opacity: .25; padding: 0; height: 3px; top: 9px; border-radius: 0; pointer-events: none; }
+  .bar.hl { transform: scaleY(1.35); box-shadow: 0 0 0 2px var(--ink); z-index: 3; }
+  .bar.picked { box-shadow: 0 0 0 2.5px var(--red), 0 0 0 4px #fff; }
+  .grid-lines { position: absolute; top: 0; bottom: 0; left: 130px; right: 0; pointer-events: none; z-index: 1; }
+  .grid-lines .wkend { position: absolute; top: 0; bottom: 0; background: rgba(29,42,36,.04); }
+  .grid-lines .today { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--red); }
+  .tbdnote { padding: 10px 12px; font: 11px 'DM Mono', monospace; opacity: .6; }
+  .home { font-size: 26px; filter: drop-shadow(0 2px 2px rgba(0,0,0,.35)); }
+</style>
+</head>
+<body>
+<div id="main">
+  <div id="map"></div>
+  <div id="bar">
+    🏠 Home base
+    <select id="home"></select>
+    <span>or click anywhere on the map</span>
+    <span class="note">distances are straight-line, not driving</span>
+  </div>
+  <div id="chart"></div>
+</div>
+<script>
+const S = Shell.init({ hint: 'Rings on the map = rows in the chart. Top-left = close & soon.' });
+const HOMES = {
+  'Toronto': [43.6453, -79.3806], 'Ottawa': [45.4215, -75.6972], 'Hamilton': [43.2557, -79.8711], 'Kitchener-Waterloo': [43.4516, -80.4925],
+  'London': [42.9849, -81.2453], 'Barrie': [44.3894, -79.6903], 'Kingston': [44.2312, -76.4860], 'Peterborough': [44.3091, -78.3197],
+  'Niagara Falls': [43.0896, -79.0849], 'North Bay': [46.3091, -79.4608],
+};
+const BANDS = [[0, 25, 'Around the corner'], [25, 75, 'Day trip'], [75, 150, 'Road trip'], [150, 300, 'Weekend away'], [300, Infinity, 'Expedition']];
+const BAND_FILL = ['#1b7f5b', '#4f9d6e', '#e0a43a', '#d9774a', '#9a6b8f'];
+const pct = i => i / N * 100;
+
+const sel = document.getElementById('home');
+sel.innerHTML = Object.keys(HOMES).map(h => `<option>${h}</option>`).join('') + '<option value="custom" disabled>Custom (map click)</option>';
+let home = { name: 'Toronto', lat: HOMES.Toronto[0], lng: HOMES.Toronto[1] };
+const homeMk = L.marker([0, 0], { icon: L.divIcon({ className: '', html: '<div class="home">🏠</div>', iconSize: [26, 26], iconAnchor: [13, 22] }), interactive: false, zIndexOffset: 2000 }).addTo(S.map);
+const rings = L.layerGroup().addTo(S.map);
+sel.onchange = () => setHome({ name: sel.value, lat: HOMES[sel.value][0], lng: HOMES[sel.value][1] }, true);
+S.map.on('click', e => { sel.value = 'custom'; setHome({ name: 'custom', lat: e.latlng.lat, lng: e.latlng.lng }, false); });
+
+function setHome(h, fly) {
+  home = h;
+  homeMk.setLatLng([h.lat, h.lng]);
+  rings.clearLayers();
+  [...BANDS].reverse().forEach(([, max], i) => {
+    if (max === Infinity) return;
+    const bi = BANDS.findIndex(b => b[1] === max);
+    L.circle([h.lat, h.lng], { radius: max * 1000, color: BAND_FILL[bi], weight: 1.5, dashArray: '4 4', fillColor: BAND_FILL[bi], fillOpacity: .06, interactive: false }).addTo(rings);
+    L.marker([h.lat + max / 111, h.lng], { icon: L.divIcon({ className: '', html: `<div style="font:10px 'DM Mono',monospace;color:${BAND_FILL[bi]};background:#fff;padding:0 3px;border-radius:3px;white-space:nowrap;transform:translate(-50%,-50%)">${max} km</div>` }), interactive: false }).addTo(rings);
+  });
+  if (fly) S.map.flyTo([h.lat, h.lng], 7, { duration: .8 });
+  renderChart();
+}
+
+function renderChart() {
+  const dist = m => haversineKm(home, m);
+  let html = '<div class="inner"><div class="head"><div class="label">DISTANCE</div><div class="months">';
+  DAYS.forEach((d, i) => { if (d.endsWith('-01')) html += `<span style="left:${pct(i)}%">${fmt(d, { month: 'short' }).toUpperCase()}</span>`; });
+  html += `<span class="todaylbl" style="left:${pct(DAYS.indexOf(TODAY))}%">TODAY</span></div></div><div class="grid-lines">`;
+  DAYS.forEach((d, i) => { if (isoToDate(d).getDay() === 6) html += `<div class="wkend" style="left:${pct(i)}%;width:${pct(2)}%"></div>`; });
+  html += `<div class="today" style="left:${pct(DAYS.indexOf(TODAY) + .5)}%"></div></div>`;
+
+  BANDS.forEach(([lo, hi, label], bi) => {
+    const ms = MARKETS.filter(m => !m.tbd && dist(m) >= lo && dist(m) < hi)
+      .map(m => ({ m, s: DAYS.indexOf(m.spans[0][0]), e: DAYS.indexOf(m.spans.at(-1)[1]) }))
+      .sort((a, b) => a.s - b.s || dist(a.m) - dist(b.m));
+    // pack into lanes: a market keeps one lane across all its date spans
+    const lanes = [];
+    ms.forEach(x => {
+      let L_ = lanes.find(l => l.end < x.s - 1);
+      if (!L_) { L_ = { end: -1, items: [] }; lanes.push(L_); }
+      L_.items.push(x); L_.end = x.e;
+    });
+    const range = hi === Infinity ? `${lo}+ km` : `${lo}–${hi} km`;
+    html += `<div class="band" style="background:${BAND_FILL[bi]}14"><div class="bl" style="color:${BAND_FILL[bi]}">${label}<small>${range} · ${ms.length}</small></div><div class="lanes">`;
+    if (!ms.length) html += '<div class="lane" style="font:11px DM Mono,monospace;opacity:.4;padding-left:8px;line-height:21px">nothing in this range</div>';
+    lanes.forEach(l => {
+      html += '<div class="lane">';
+      l.items.forEach(({ m, s, e }) => {
+        if (m.spans.length > 1) html += `<div class="bar gap" style="background:${col(m)};left:${pct(s)}%;width:${pct(e - s + 1)}%"></div>`;
+        m.spans.forEach(([a, b], k) => {
+          const i0 = DAYS.indexOf(a), i1 = DAYS.indexOf(b);
+          html += `<div class="bar ${m.select ? 'select' : ''}" data-id="${m.id}" style="background:${col(m)};left:${pct(i0)}%;width:${pct(i1 - i0 + 1)}%"
+            title="${m.name} — ${m.city} · ${Math.round(dist(m))} km · ${m.when}">${k === 0 ? m.name : ''}</div>`;
+        });
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  const tbd = MARKETS.filter(m => m.tbd);
+  html += `<div class="tbdnote">Not charted, dates TBA: ${tbd.map(m => `${m.name} (${Math.round(dist(m))} km)`).join(', ')}</div></div>`;
+  const chart = document.getElementById('chart');
+  chart.innerHTML = html;
+  chart.querySelectorAll('.bar[data-id]').forEach(b => {
+    const m = MARKETS[+b.dataset.id];
+    b.onclick = () => S.toggle(m);
+    b.onmouseenter = () => S.hl(m, true); b.onmouseleave = () => S.hl(m, false);
+  });
+  markPicked();
+}
+function markPicked() { document.querySelectorAll('.bar[data-id]').forEach(b => b.classList.toggle('picked', S.isPicked(MARKETS[+b.dataset.id]))); }
+S.onPick.push(markPicked);
+S.onHl.push((m, on) => {
+  const bars = document.querySelectorAll(`.bar[data-id="${m.id}"]`);
+  bars.forEach(b => b.classList.toggle('hl', on));
+  if (on && bars[0] && !bars[0].matches(':hover')) bars[0].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+setHome(home, false);
+S.map.setView([home.lat, home.lng], 7);
+</script>
+</body>
+</html>
