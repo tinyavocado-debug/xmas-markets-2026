@@ -10,6 +10,7 @@ const col = m => COLOR_MODE === 'region' ? REGION_COLORS[m.region] : DURATIONS[d
 const DAYS = seasonDays(), N = DAYS.length, TODAY = todayIso();
 const openOn = (m, d) => ['open', 'maybe'].includes(dayStatus(m, d));
 
+const SAVE_KEY = 'xmas-markets-2026:trips'; // namespaced: GitHub Pages sites under one account share storage
 const TRIP_COLORS = ['#d7263d', '#2a6fdb', '#7b3fa0', '#0f9fa8', '#e08a00', '#1d2a24'];
 const shortDay = d => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
 
@@ -44,7 +45,10 @@ const Shell = {
     // ?trips=2026-12-01:20,23|2026-12-06:3,5 preloads the sleigh (shareable); legacy ?stops=3,20 = one undated day
     const q = new URLSearchParams(location.search);
     const ids = str => (str || '').split(',').filter(x => MARKETS[+x]).map(x => MARKETS[+x]);
-    if (q.get('trips')) q.get('trips').split('|').forEach(t => { const [d, st] = t.split(':'); this.newTrip(DAYS.includes(d) ? d : null, ids(st)); });
+    // a link with a plan wins; otherwise restore the plan saved in this browser
+    const saved = (() => { try { return localStorage.getItem(SAVE_KEY); } catch { return null; } })();
+    const plan = q.get('trips') || (!q.get('stops') && saved);
+    if (plan) plan.split('|').forEach(t => { const [d, st] = t.split(':'); this.newTrip(DAYS.includes(d) ? d : null, ids(st)); });
     else if (q.get('stops')) this.newTrip(null, ids(q.get('stops')));
     this.active = this.trips[0] || null; // no day card until the user adds one (or picks a market)
     this.draw();
@@ -181,8 +185,11 @@ const Shell = {
     // shareable URL
     const q = new URLSearchParams(location.search);
     q.delete('stops');
-    all || this.trips.some(t => t.date) ? q.set('trips', this.trips.map(t => `${t.date || 'x'}:${t.stops.map(m => m.id).join(',')}`).join('|')) : q.delete('trips');
+    const plan = this.trips.map(t => `${t.date || 'x'}:${t.stops.map(m => m.id).join(',')}`).join('|');
+    plan ? q.set('trips', plan) : q.delete('trips');
     history.replaceState(null, '', '?' + q);
+    // remember the plan in this browser (no account needed; per device)
+    try { plan ? localStorage.setItem(SAVE_KEY, plan) : localStorage.removeItem(SAVE_KEY); } catch { /* storage blocked: link still works */ }
     this.onPick.forEach(f => f());
   },
 };
