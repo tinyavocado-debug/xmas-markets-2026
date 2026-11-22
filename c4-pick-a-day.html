@@ -60,17 +60,9 @@
   .itin .foot span { opacity: .6; }
   .itin .foot button { border: 0; background: none; cursor: pointer; font: inherit; color: var(--tc); padding: 0; }
   .itin .foot button:hover { text-decoration: underline; }
-  .tstops a.wl { color: var(--tc); text-decoration: none; }
-  .tstops a.wl:hover, .tstops a.wname:hover { text-decoration: underline; }
-  .tstops li.ls-b { padding-right: 52px; }
-  .tstops .wicon { position: absolute; right: 26px; top: 5px; width: 22px; height: 20px; display: grid; place-items: center; border-radius: 5px; text-decoration: none; font-size: 12px; }
-  .tstops a.wicon:hover { box-shadow: 0 0 0 1.5px var(--tc); }
-  .tstops .wicon.none { opacity: .25; cursor: help; }
+  .tstops a.wname:hover { text-decoration: underline; }
   .tstops a.wname { color: inherit; text-decoration: none; }
   .tstops a.wname span { color: var(--tc); font-size: 11px; }
-  .lsw { margin: 0 10px 6px; padding: 4px 6px; border: 1.5px dashed var(--line); border-radius: 6px; font: 10px 'DM Mono', monospace; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
-  .lsw button { font: inherit; border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 1px 6px; cursor: pointer; }
-  .lsw button.on { background: var(--ink); color: #fff; border-color: var(--ink); }
   .flash { background: #fbe7c0; color: #7a4b00; font: 11px 'DM Mono', monospace; padding: 5px 8px; border-radius: 6px; margin-bottom: 8px; }
   .flash button { font: inherit; border: 1.5px solid #7a4b00; background: #fff; color: #7a4b00; border-radius: 4px; cursor: pointer; margin-top: 4px; }
   .row .pk { margin: 0 4px 0 0; accent-color: var(--ac); cursor: pointer; flex: none; }
@@ -166,14 +158,9 @@ function calHtml() {
 // ---- itinerary ----
 let msg = '', msgTimer = 0;
 function flash(text) { msg = text; render(); clearTimeout(msgTimer); msgTimer = setTimeout(() => { msg = ''; render(); }, 5000); }
-// TEMP: three placements for the market's website link; pick one, then remove the switch
-const LINK_STYLES = { a: 'A · city line', b: 'B · icon right', c: 'C · name is link' };
-let linkStyle = localStorage.getItem('xmas-markets-2026:linkstyle') || 'a';
+// the market name links to its website
 function stopHtml(m) {
-  const href = m.url ? `href="${m.url}" target="_blank" rel="noopener"` : '';
-  if (linkStyle === 'b') return `${m.name}<small>${m.city}</small>` + (m.url ? `<a class="wicon" ${href} title="Market website">🌐</a>` : `<span class="wicon none" title="No website listed">🌐</span>`);
-  if (linkStyle === 'c') return (m.url ? `<a class="wname" ${href} title="Market website">${m.name} <span>↗</span></a>` : m.name) + `<small>${m.city}${m.url ? '' : ' · no website listed'}</small>`;
-  return `${m.name}<small>${m.city} · ${m.url ? `<a class="wl" ${href}>🌐 website</a>` : 'no website listed'}</small>`;
+  return (m.url ? `<a class="wname" href="${m.url}" target="_blank" rel="noopener" title="Market website">${m.name} <span>↗</span></a>` : m.name) + `<small>${m.city}${m.url ? '' : ' · no website listed'}</small>`;
 }
 function itinHtml() {
   let h = '<div class="itwrap">';
@@ -185,10 +172,9 @@ function itinHtml() {
   h += `<div class="itin" style="--tc:${t.color}"><div class="ih"><b>Itinerary · ${day(sel)}</b><span>${t.stops.length} stop${t.stops.length === 1 ? '' : 's'}${km ? ` · ${Math.round(km)} km` : ''}</span><button id="del" title="Delete this itinerary">✕</button></div>`;
   if (!t.stops.length) h += `<div class="ie">Tick the markets you want to visit in the list below (or click their pins).</div>`;
   else {
-    h += `<ol class="tstops">${t.stops.map(m => `<li data-id="${m.id}" class="ls-${linkStyle}">${stopHtml(m)}${openOn(m, sel) ? '' : `<span class="warn">⚠ not open ${day(sel)}</span>`}<button class="rm" data-id="${m.id}" title="Remove">✕</button></li>`).join('')}</ol>`;
+    h += `<ol class="tstops">${t.stops.map(m => `<li data-id="${m.id}">${stopHtml(m)}${openOn(m, sel) ? '' : `<span class="warn">⚠ not open ${day(sel)}</span>`}<button class="rm" data-id="${m.id}" title="Remove">✕</button></li>`).join('')}</ol>`;
     h += `<a class="groute" target="_blank" rel="noopener" href="${t.stops.length === 1 ? gmapsUrl(t.stops[0]) : routeUrl(t.stops.slice(0, 11))}">${t.stops.length === 1 ? '📍 Open in Google Maps' : t.stops.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : '🚗 Route in Google Maps'}</a>`;
   }
-  h += `<div class="lsw">Website link: ${Object.keys(LINK_STYLES).map(k => `<button data-ls="${k}" class="${k === linkStyle ? 'on' : ''}">${LINK_STYLES[k]}</button>`).join('')}</div>`;
   return h + `<div class="foot"><span>Saved in this browser</span><button id="copy">🔗 copy share link</button></div></div></div>`;
 }
 // any add (tick, name, map pin) goes to the picked day's itinerary; closed markets can't be added
@@ -273,7 +259,6 @@ function render() {
     if (t.stops.length && !confirm(`Delete the ${day(sel)} itinerary and its ${t.stops.length} stop(s)?`)) return;
     S.trips.splice(S.trips.indexOf(t), 1); S.active = null; S.draw();
   });
-  box.querySelectorAll('[data-ls]').forEach(b => b.onclick = () => { linkStyle = b.dataset.ls; localStorage.setItem('xmas-markets-2026:linkstyle', linkStyle); render(); });
   document.getElementById('copy')?.addEventListener('click', e => navigator.clipboard.writeText(location.href).then(() => e.target.textContent = '✓ link copied', () => e.target.textContent = 'copy failed: use the address bar'));
   box.querySelectorAll('.tstops .rm').forEach(b => b.onclick = () => { const t = S.active; t.stops.splice(t.stops.indexOf(MARKETS[+b.dataset.id]), 1); S.draw(); });
   box.querySelectorAll('.tstops li').forEach(li => { const m = MARKETS[+li.dataset.id]; li.onmouseenter = () => S.hl(m, true); li.onmouseleave = () => S.hl(m, false); });
