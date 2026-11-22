@@ -282,7 +282,8 @@ S.onHl.push((m, on) => {
   const r = box.querySelector(`.row[data-id="${m.id}"]`);
   if (!r) return;
   r.classList.toggle('hl', on);
-  if (on && !r.matches(':hover') && r.offsetParent) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  // only follow hovers that come from the map; never move the panel while the pointer is in it
+  if (on && !box.matches(':hover') && r.offsetParent) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 });
 pick(sel);
 </script>
