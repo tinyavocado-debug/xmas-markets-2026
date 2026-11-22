@@ -19,7 +19,8 @@ const Shell = {
   trips: [], active: null, onHl: [], onPick: [], onActivate: [],
   suggestDate: () => null, // a variant can propose a date for a new day (e.g. the brushed day)
   get picked() { return this.active ? this.active.stops : []; },
-  init({ hint = '' } = {}) {
+  init({ hint = '', pickDayHint = 'Pick a date above (or click a day on the timeline), then click markets to add them.' } = {}) {
+    this.pickDayHint = pickDayHint;
     document.body.insertAdjacentHTML('afterbegin', `<header><h1>🛷 Sleigh Route</h1><span class="hint">${hint}</span></header>`);
     document.body.insertAdjacentHTML('beforeend', `<aside id="ticket"><div class="stub"><h2>Your sleigh</h2><div class="km" id="km"></div></div>
       <div id="trips"></div><div class="legend">${COLOR_MODE === 'region'
@@ -146,7 +147,7 @@ const Shell = {
         </div><ol class="tstops"></ol>`;
       const ol = card.querySelector('ol');
       if (!t.stops.length) ol.innerHTML = `<li class="empty">${t !== A ? 'No stops yet. Click this card, then add markets.'
-        : !t.date ? 'Pick a date above (or click a day on the timeline), then click markets to add them.' : 'Click markets on the map or timeline to add them to this day.'}</li>`;
+        : !t.date ? this.pickDayHint : 'Click markets on the map or timeline to add them to this day.'}</li>`;
       t.stops.forEach(m => {
         const st = t.date ? dayStatus(m, t.date) : null;
         const warn = st === 'closed' ? `<span class="warn">⚠ not open ${shortDay(t.date)}</span>`

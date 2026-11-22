@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Sleigh Route · Pick a Day</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="c-shell.css">
+<script src="data.js"></script>
+<script src="c-shell.js"></script>
+<style>
+  #main { display: grid; grid-template-rows: var(--maph, 40%) 12px 1fr; }
+  #divider { cursor: row-resize; background: var(--ink); display: grid; place-items: center; touch-action: none; position: relative; z-index: 700; }
+  #divider::before { content: ''; width: 46px; height: 4px; border-radius: 2px; background: repeating-linear-gradient(90deg, #fff 0 6px, var(--red) 6px 12px); }
+  #divider:hover::before, body.resizing #divider::before { width: 80px; }
+  body.resizing, body.resizing * { cursor: row-resize !important; user-select: none; }
+
+  #below { display: grid; grid-template-columns: 330px 1fr; min-height: 0; }
+
+  /* calendar */
+  #cal { overflow-y: auto; border-right: 2px solid var(--ink); padding: 8px 10px 12px; background: #fff; }
+  #cal h3 { margin: 2px 2px 6px; font-size: 14px; display: flex; align-items: baseline; gap: 8px; }
+  #cal h3 small { font: 10px 'DM Mono', monospace; opacity: .6; font-weight: 400; }
+  .wk { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+  .wk.hd div { font: 10px 'DM Mono', monospace; text-align: center; opacity: .6; padding-bottom: 2px; }
+  .cell { position: relative; height: 38px; border: 1.5px solid var(--line); border-radius: 6px; cursor: pointer; padding: 2px 4px; box-sizing: border-box; background: #fff; }
+  .cell.m1 { background: #fbf6ee; }
+  .cell.pad { visibility: hidden; }
+  .cell:hover { border-color: var(--ink); }
+  .cell.sel { border: 2px solid var(--ink); box-shadow: 2px 2px 0 var(--ink); background: #fff1d6; }
+  .cell .dn { font: 600 11.5px 'DM Mono', monospace; }
+  .cell .mo { font: 700 9px 'DM Mono', monospace; color: var(--red); margin-left: 2px; }
+  .cell .ct { position: absolute; right: 4px; top: 2px; font: 10px 'DM Mono', monospace; opacity: .55; }
+  .cell .mini { position: absolute; left: 4px; right: 4px; bottom: 4px; height: 6px; display: flex; gap: 1px; }
+  .cell .mini i { height: 100%; border-radius: 1px; }
+  .cell.today .dn { background: var(--red); color: #fff; border-radius: 3px; padding: 0 3px; }
+  .cell .trp { position: absolute; left: 50%; top: -6px; transform: translateX(-50%); display: flex; gap: 1px; }
+  .cell .trp b { font: 8.5px/12px 'DM Mono', monospace; color: #fff; padding: 0 3px; border-radius: 3px; }
+  .wk + .wk { margin-top: 3px; }
+  .calnote { font: 10px 'DM Mono', monospace; opacity: .6; margin: 8px 2px 0; line-height: 1.5; }
+
+  /* the day's list */
+  #day { overflow-y: auto; min-width: 0; }
+  .dayhead { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 2px solid var(--ink); padding: 8px 14px 8px; }
+  .dayhead .top { display: flex; align-items: center; gap: 8px; }
+  .dayhead h2 { margin: 0; font-size: 19px; flex: 1; }
+  .dayhead button { border: 1.5px solid var(--ink); background: #fff; border-radius: 5px; cursor: pointer; font-size: 12px; padding: 2px 8px; }
+  .dayhead button:disabled { opacity: .3; cursor: default; }
+  .sum { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; font-size: 12px; align-items: center; }
+  .sum .k { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 12px; background: #fff; border: 1.5px solid var(--line); }
+  .sum .k i { width: 9px; height: 9px; border-radius: 50%; }
+  .sum .k.zero { opacity: .4; }
+  .sum .view { font: 11px 'DM Mono', monospace; background: var(--ink); color: #fff; padding: 2px 8px; border-radius: 12px; }
+  .sum .view button { margin-left: 6px; font-size: 10.5px; padding: 0 5px; }
+
+  .grp { padding: 10px 14px 4px; display: flex; align-items: baseline; gap: 8px; border-left: 6px solid var(--gc); margin-top: 6px; }
+  .grp b { font-size: 14px; }
+  .grp span { font-size: 12px; opacity: .75; }
+  .row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px; padding: 5px 14px 5px 20px; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .row.hl { background: #fff1d6; }
+  .row .nm { cursor: pointer; min-width: 0; }
+  .row .nm:hover u { text-decoration: underline; }
+  .row .nm u { text-decoration: none; }
+  .row .nm small { font: 10.5px 'DM Mono', monospace; opacity: .6; margin-left: 5px; }
+  .row.picked .nm u { color: var(--red); font-weight: 600; }
+  .row .when { font: 11px 'DM Mono', monospace; text-align: right; white-space: nowrap; }
+  .row .when .then { opacity: .55; }
+  .tag { font: 10px 'DM Mono', monospace; padding: 1px 5px; border-radius: 3px; margin-left: 5px; }
+  .tag.last { background: var(--red); color: #fff; }
+  .tag.maybe { background: #fbe7c0; color: #7a4b00; }
+  .links { display: flex; gap: 2px; }
+  .links a, .links span { text-decoration: none; font-size: 12px; width: 22px; height: 20px; display: grid; place-items: center; border-radius: 5px; }
+  .links a:hover { background: #fff; box-shadow: 0 0 0 1.5px var(--ink); }
+  .links .nolink { opacity: .2; cursor: help; }
+  .dayb { display: inline-block; font: 9.5px/14px 'DM Mono', monospace; color: #fff; padding: 0 4px; border-radius: 3px; margin-right: 4px; vertical-align: 1px; }
+  details.closed { margin: 14px 0 20px; }
+  details.closed summary { padding: 6px 14px; cursor: pointer; font-size: 12.5px; opacity: .7; }
+  details.closed .row { opacity: .6; }
+  .empty-note { padding: 24px 14px; opacity: .6; font-size: 13px; }
+</style>
+</head>
+<body>
+<div id="main">
+  <div id="map"></div>
+  <div id="divider" title="Drag to resize · double-click to reset"></div>
+  <div id="below">
+    <div id="cal"></div>
+    <div id="day"></div>
+  </div>
+</div>
+<script>
+const S = Shell.init({ hint: 'Pick a day on the calendar to see what’s open · click a market to add it to your sleigh', pickDayHint: 'Pick a date above (or click a day in the calendar), then click markets to add them.' });
+const KINDS = ['long', 'mid', 'short', 'weekly', 'tbd'];
+// what each kind means for the person picking a day
+const KIND_SAYS = {
+  long: 'open for weeks: no rush, most other days work too',
+  mid: 'a limited stretch of 5–20 days',
+  short: 'only 1–4 days at a time: go now or catch the next run',
+  weekly: 'one day at a time, repeating',
+  tbd: 'no dates published: check the site',
+};
+const short = d => fmt(d, { month: 'short', day: 'numeric' });
+const range = (s, e) => s === e ? short(s) : s.slice(5, 7) === e.slice(5, 7) ? `${short(s)}–${+e.slice(8)}` : `${short(s)} – ${short(e)}`;
+const WD = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+
+let sel = DAYS.includes(TODAY) ? TODAY : DAYS[0];
+let inView = new Set(MARKETS.map(m => m.id));
+const shown = m => inView.has(m.id) && S.passes(m);
+
+// ---- how a market's dates read from the chosen day ----
+function info(m, d) {
+  const k = durationKind(m);
+  const i = m.spans.findIndex(([s, e]) => d >= s && d <= e);
+  let end = m.spans[i][1], j = i + 1;
+  if (k === 'long') while (j < m.spans.length && spanLen([end, m.spans[j][0]]) - 2 <= 2) end = m.spans[j++][1]; // bridge short closures
+  const later = m.spans.slice(j);
+  const last = d === end && !later.length;
+  let now, then = '';
+  if (k === 'weekly') {
+    const wds = new Set(m.spans.map(([s]) => isoToDate(s).getDay()));
+    now = wds.size === 1 ? WD[[...wds][0]] : 'single days';
+    if (later.length) then = 'next ' + short(later[0][0]);
+  } else if (k === 'long') {
+    now = `until ${short(end)}`;
+    if (m.spans.length > 1) now += ' · closed some days';
+    if (later.length) then = 'then ' + range(...later[0]);
+  } else {
+    now = m.spans[i][0] === m.spans[i][1] ? 'this day only' : range(...m.spans[i]);
+    if (later.length) then = 'then ' + range(...later[0]) + (later.length > 1 ? ` +${later.length - 1} more` : '');
+  }
+  return { now, then, last };
+}
+function nextOpen(m, d) {
+  if (m.tbd) return 'dates TBA';
+  const nx = m.spans.find(([, e]) => e > d);
+  if (!nx) return `ended ${short(m.spans.at(-1)[1])}`;
+  return 'next open ' + short(nx[0]);
+}
+
+// ---- calendar ----
+const cal = document.getElementById('cal');
+function drawCal() {
+  const counts = d => { const c = {}; MARKETS.forEach(m => { if (shown(m) && openOn(m, d)) { const k = durationKind(m); c[k] = (c[k] || 0) + 1; } }); return c; };
+  const all = DAYS.map(counts), max = Math.max(1, ...all.map(c => Object.values(c).reduce((a, b) => a + b, 0)));
+  let html = `<h3>Pick a day <small>number = markets open</small></h3><div class="wk hd">${['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<div>${x}</div>`).join('')}</div>`;
+  const pad = isoToDate(DAYS[0]).getDay();
+  const cells = [...Array(pad).fill(null), ...DAYS];
+  for (let w = 0; w < cells.length; w += 7) {
+    html += '<div class="wk">';
+    for (let x = 0; x < 7; x++) {
+      const d = cells[w + x];
+      if (!d) { html += '<div class="cell pad"></div>'; continue; }
+      const c = all[DAYS.indexOf(d)], n = Object.values(c).reduce((a, b) => a + b, 0);
+      const mini = KINDS.filter(k => c[k]).map(k => `<i style="background:${DURATIONS[k].color};width:${c[k] / max * 100}%"></i>`).join('');
+      const trips = S.trips.map((t, ti) => t.date === d ? `<b style="background:${t.color}">D${ti + 1}</b>` : '').join('');
+      const mo = d.endsWith('-01') ? `<span class="mo">${fmt(d, { month: 'short' }).toUpperCase()}</span>` : '';
+      html += `<div class="cell ${d.slice(5, 7) === '12' ? 'm1' : ''} ${d === sel ? 'sel' : ''} ${d === TODAY ? 'today' : ''}" data-d="${d}" title="${fmt(d)}: ${n} open">
+        <span class="dn">${+d.slice(8)}</span>${mo}<span class="ct">${n}</span><div class="mini">${mini}</div>${trips ? `<div class="trp">${trips}</div>` : ''}</div>`;
+    }
+    html += '</div>';
+  }
+  html += `<div class="calnote">Bar = what's open, coloured by how long it runs.${S.kind ? `<br>Showing ${DURATIONS[S.kind].label} only (map filter).` : ''}${inView.size < MARKETS.length ? '<br>Counting markets in the map view.' : ''}</div>`;
+  cal.innerHTML = html;
+  cal.querySelectorAll('.cell[data-d]').forEach(c => c.onclick = () => pick(c.dataset.d));
+}
+function pick(d) {
+  sel = d;
+  // a sleigh day with no date takes the day you click
+  if (S.active && !S.active.date) { S.active.date = d; S.draw(); return; } // draw() → onPick → render
+  render();
+}
+
+// ---- the day's list ----
+const day = document.getElementById('day');
+function row(m, extra) {
+  const links = (m.url ? `<a href="${m.url}" target="_blank" rel="noopener" title="Market website">🌐</a>` : `<span class="nolink" title="The source page gives no link for this market">🌐</span>`)
+    + `<a href="${gmapsUrl(m)}" target="_blank" rel="noopener" title="Open ${m.venue} in Google Maps">📍</a>`;
+  const badges = S.trips.map((t, i) => t.stops.includes(m) ? `<span class="dayb" style="background:${t.color}" title="Planned for Day ${i + 1}">D${i + 1}</span>` : '').join('');
+  return `<div class="row ${S.isPicked(m) ? 'picked' : ''}" data-id="${m.id}"><span class="nm" title="Add to sleigh">${badges}<u>${m.name}</u><small>${m.city}</small></span><span class="when">${extra}</span><span class="links">${links}</span></div>`;
+}
+function render() {
+  const open = MARKETS.filter(m => shown(m) && openOn(m, sel));
+  const by = k => open.filter(m => durationKind(m) === k);
+  const i = DAYS.indexOf(sel);
+  let html = `<div class="dayhead"><div class="top"><button id="prev" ${i ? '' : 'disabled'}>‹</button><h2>${fmt(sel)}${sel === TODAY ? ' · today' : ''}</h2><button id="next" ${i < N - 1 ? '' : 'disabled'}>›</button></div>
+    <div class="sum"><b>${open.length} open</b>${KINDS.filter(k => k !== 'tbd' || by('tbd').length).map(k => `<span class="k ${by(k).length ? '' : 'zero'}"><i style="background:${DURATIONS[k].color}"></i>${by(k).length} ${DURATIONS[k].label.toLowerCase()}</span>`).join('')}
+    ${inView.size < MARKETS.length ? `<span class="view">📍 ${inView.size} in map view<button id="clrM">show all</button></span>` : ''}</div></div>`;
+  KINDS.forEach(k => {
+    const list = by(k);
+    if (!list.length) return;
+    html += `<div class="grp" style="--gc:${DURATIONS[k].color}"><b>${DURATIONS[k].label}</b><span>${KIND_SAYS[k]}</span></div>`;
+    list.sort((a, b) => a.name < b.name ? -1 : 1).forEach(m => {
+      const f = info(m, sel);
+      html += row(m, `${f.now}${f.then ? ` <span class="then">· ${f.then}</span>` : ''}${f.last ? '<span class="tag last">last chance</span>' : ''}${m.select ? '<span class="tag maybe">select dates: check site</span>' : ''}`);
+    });
+  });
+  if (!open.length) html += `<div class="empty-note">Nothing open${S.kind || inView.size < MARKETS.length ? ' that matches the map view and filter' : ''} on this day.</div>`;
+  const closed = MARKETS.filter(m => shown(m) && !openOn(m, sel));
+  if (closed.length) html += `<details class="closed"><summary>Not open this day (${closed.length})</summary>${closed.map(m => row(m, nextOpen(m, sel))).join('')}</details>`;
+  const wasOpen = day.querySelector('details.closed')?.open, top = day.scrollTop;
+  day.innerHTML = html;
+  if (wasOpen) day.querySelector('details.closed').open = true;
+  day.scrollTop = top;
+  day.querySelectorAll('.row').forEach(r => {
+    const m = MARKETS[+r.dataset.id];
+    r.querySelector('.nm').onclick = () => S.toggle(m);
+    r.onmouseenter = () => S.hl(m, true); r.onmouseleave = () => S.hl(m, false);
+  });
+  document.getElementById('prev').onclick = () => pick(DAYS[i - 1]);
+  document.getElementById('next').onclick = () => pick(DAYS[i + 1]);
+  document.getElementById('clrM')?.addEventListener('click', () => S.map.fitBounds(L.latLngBounds(MARKETS.map(m => [m.lat, m.lng])), { padding: [20, 20] }));
+  S.dim(new Set(open.map(m => m.id)));
+  drawCal();
+}
+addEventListener('keydown', e => {
+  if (e.target.closest('input, textarea')) return;
+  const i = DAYS.indexOf(sel);
+  if (e.key === 'ArrowLeft' && i > 0) pick(DAYS[i - 1]);
+  if (e.key === 'ArrowRight' && i < N - 1) pick(DAYS[i + 1]);
+});
+
+// ---- sleigh hooks ----
+S.onPick.push(() => render());
+S.onActivate.push(t => { if (t?.date) { sel = t.date; render(); } });
+S.suggestDate = () => sel;
+S.onFilter.push(() => render());
+S.onHl.push((m, on) => {
+  const r = day.querySelector(`.row[data-id="${m.id}"]`);
+  if (!r) return;
+  r.classList.toggle('hl', on);
+  if (on && !r.matches(':hover') && r.offsetParent) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+});
+S.map.on('moveend', () => {
+  const b = S.map.getBounds();
+  inView = new Set(MARKETS.filter(m => b.contains([m.lat, m.lng])).map(m => m.id));
+  render();
+});
+
+// ---- draggable divider between map and the calendar ----
+(() => {
+  const main = document.getElementById('main'), div = document.getElementById('divider');
+  const MIN_MAP = 120, MIN_BELOW = 200, KEY = 'c4-map-height';
+  const setH = h => { h = Math.max(MIN_MAP, Math.min(main.clientHeight - 12 - MIN_BELOW, h)); main.style.setProperty('--maph', h + 'px'); return h; };
+  let raf = 0;
+  const refreshMap = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(() => S.map.invalidateSize({ pan: false })); };
+  const saved = +localStorage.getItem(KEY);
+  if (saved) { setH(saved); refreshMap(); }
+  div.addEventListener('pointerdown', e => {
+    e.preventDefault(); div.setPointerCapture(e.pointerId); document.body.classList.add('resizing');
+    const top = main.getBoundingClientRect().top;
+    const move = ev => { setH(ev.clientY - top - 6); refreshMap(); };
+    const up = () => {
+      div.removeEventListener('pointermove', move); div.removeEventListener('pointerup', up);
+      document.body.classList.remove('resizing');
+      localStorage.setItem(KEY, parseInt(getComputedStyle(main).getPropertyValue('--maph')) || '');
+    };
+    div.addEventListener('pointermove', move); div.addEventListener('pointerup', up);
+  });
+  div.addEventListener('dblclick', () => { main.style.removeProperty('--maph'); localStorage.removeItem(KEY); refreshMap(); });
+  addEventListener('resize', () => { const cur = parseInt(main.style.getPropertyValue('--maph')); if (cur) setH(cur); refreshMap(); });
+})();
+
+if (S.active?.date) sel = S.active.date; // shared link with a dated day: start on it
+S.map.fire('moveend');
+</script>
+</body>
+</html>
