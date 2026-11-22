@@ -13,9 +13,8 @@
   body { grid-template-columns: 1fr 360px; }
   #main, #map { height: 100%; }
   .legend { display: none; } /* the map's "How long?" box and the list's colours do this job */
-  /* the sleigh's day cards and the day's list share the panel */
-  #trips { flex: 0 1 auto; max-height: 40%; }
-  #ticket:has(#daylist.shut) #trips { max-height: none; }
+  /* no day cards: the calendar picks the day, the itinerary lives under it */
+  #trips { display: none; }
 
   /* small calendar: click a date to list what's open */
   .mcal { padding: 8px 12px 6px; background: #fff; border-bottom: 1px solid var(--line); }
@@ -31,9 +30,8 @@
   .mcal .c.sel { background: var(--ink); color: #fff; }
   .mcal .c i { position: absolute; left: 28%; right: 28%; bottom: 2px; height: 3px; border-radius: 2px; background: var(--tc); }
 
-  #daylist { flex: 1 1 0; min-height: 0; display: flex; flex-direction: column; border-top: 2px solid var(--ink); }
-  #daylist.shut { flex: 0 0 auto; }
-  .dl-head { padding: 9px 14px 9px; cursor: pointer; user-select: none; background: var(--bg); }
+  #daylist { flex: 1 1 0; min-height: 0; overflow-y: auto; }
+  .dl-head { padding: 9px 14px 9px; cursor: pointer; user-select: none; background: var(--bg); position: sticky; top: 0; z-index: 3; border-top: 2px solid var(--ink); }
   .dl-head:hover { background: #fff1d6; }
   .dl-head .t { display: flex; align-items: baseline; gap: 6px; font-size: 14px; }
   .dl-head .t .car { font-size: 11px; width: 12px; display: inline-block; transition: transform .15s; }
@@ -45,7 +43,26 @@
   .sum .k { display: inline-flex; align-items: center; gap: 4px; padding: 1px 7px; border-radius: 11px; background: #fff; border: 1.5px solid var(--line); }
   .sum .k i { width: 8px; height: 8px; border-radius: 50%; }
   .sum .k.zero { opacity: .4; }
-  .dl-body { overflow-y: auto; min-height: 0; flex: 1; border-top: 1px solid var(--line); }
+  .dl-body { border-top: 1px solid var(--line); }
+
+  /* itinerary for the picked day */
+  .itwrap { padding: 2px 10px 12px; background: #fff; }
+  .mkitin { width: 100%; border: 2px dashed var(--ink); background: none; border-radius: 9px; padding: 9px; font: 600 13px 'Space Grotesk', sans-serif; cursor: pointer; color: var(--ink); }
+  .mkitin:hover { background: #fff1d6; }
+  .itin { border: 2px solid var(--tc); border-left-width: 6px; border-radius: 9px; box-shadow: 3px 3px 0 var(--tc); background: #fff; }
+  .itin .ih { display: flex; align-items: baseline; gap: 6px; padding: 7px 8px 5px 10px; }
+  .itin .ih b { flex: 1; font-size: 13.5px; }
+  .itin .ih span { font: 10.5px 'DM Mono', monospace; opacity: .65; }
+  .itin .ih button { border: 0; background: none; cursor: pointer; opacity: .45; font-size: 12px; }
+  .itin .ih button:hover { opacity: 1; }
+  .itin .ie { padding: 2px 10px 10px; font-size: 12px; opacity: .65; }
+  .itin .foot { display: flex; justify-content: space-between; align-items: center; padding: 0 10px 8px; font: 10.5px 'DM Mono', monospace; }
+  .itin .foot span { opacity: .6; }
+  .itin .foot button { border: 0; background: none; cursor: pointer; font: inherit; color: var(--tc); padding: 0; }
+  .itin .foot button:hover { text-decoration: underline; }
+  .flash { background: #fbe7c0; color: #7a4b00; font: 11px 'DM Mono', monospace; padding: 5px 8px; border-radius: 6px; margin-bottom: 8px; }
+  .flash button { font: inherit; border: 1.5px solid #7a4b00; background: #fff; color: #7a4b00; border-radius: 4px; cursor: pointer; margin-top: 4px; }
+  .row .pk { margin: 0 4px 0 0; accent-color: var(--ac); cursor: pointer; flex: none; }
   #daylist.shut .dl-body { display: none; }
 
   details.grp > summary { list-style: none; cursor: pointer; padding: 7px 12px 5px 10px; border-left: 5px solid var(--gc); display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 6px; user-select: none; }
@@ -63,7 +80,7 @@
   .row .l1 { display: flex; align-items: center; gap: 4px; }
   .row .nm { flex: 1; min-width: 0; cursor: pointer; }
   .row .nm:hover { text-decoration: underline; }
-  .row.picked .nm { color: var(--red); font-weight: 600; }
+  .row.picked .nm { color: var(--ac); font-weight: 600; }
   .row .l2 { font: 10.5px 'DM Mono', monospace; opacity: .75; margin-top: 1px; }
   .row .l2 .then { opacity: .7; }
   .tag { font: 9.5px 'DM Mono', monospace; padding: 0 5px; border-radius: 3px; margin-left: 4px; white-space: nowrap; }
@@ -83,7 +100,7 @@
   <div id="map"></div>
 </div>
 <script>
-const S = Shell.init({ hint: 'Click a date in the calendar to see what’s open · click a market to add it to your sleigh', pickDayHint: 'Click a date in the calendar below (or pick one here), then click markets to add them.' });
+const S = Shell.init({ hint: 'Pick a date to see what’s open · create an itinerary and tick the markets you want to visit' });
 const KINDS = ['long', 'mid', 'short', 'weekly', 'tbd'];
 // what each kind means for the person picking a day
 const KIND_SAYS = {
@@ -103,25 +120,63 @@ const ui = (() => { try { return { shut: false, groups: {}, ...JSON.parse(localS
 const saveUi = () => { try { localStorage.setItem(UI_KEY, JSON.stringify(ui)); } catch { } };
 const groupOpen = k => ui.groups[k] ?? k !== 'closed';
 
-// the date being looked at: set by the calendar, and follows the sleigh day you switch to
-let sel = S.active?.date || (DAYS.includes(TODAY) ? TODAY : DAYS[0]);
+const day = d => fmt(d, { weekday: 'short', month: 'short', day: 'numeric' });
+const tripOn = d => S.trips.find(t => t.date === d) || null;
+
+// ---- tidy up plans saved by the older day-card version ----
+S.trips.filter(t => !t.stops.length && !t.date).forEach(t => S.trips.splice(S.trips.indexOf(t), 1)); // empty + undated: nothing to keep
+S.trips.filter(t => t.date).forEach(t => { // two plans on one date → one itinerary
+  const keep = tripOn(t.date);
+  if (keep !== t) { t.stops.forEach(m => keep.stops.includes(m) || keep.stops.push(m)); S.trips.splice(S.trips.indexOf(t), 1); }
+});
+const undated = () => S.trips.filter(t => !t.date); // shown in the panel so they can be given a date, never dropped quietly
+
+// the date being looked at; S.active is always that date's itinerary (or none)
+const start = DAYS.includes(TODAY) ? TODAY : DAYS[0];
+let sel = tripOn(start) ? start : (S.trips.map(t => t.date).filter(d => d && d >= start).sort()[0] || start);
 let viewMo = sel.slice(0, 7);
 const MONTHS = [...new Set(DAYS.map(d => d.slice(0, 7)))];
 function pick(d) {
-  sel = d; viewMo = d.slice(0, 7);
-  if (S.active && !S.active.date) { S.active.date = d; S.draw(); return; } // an undated sleigh day takes the date you click (draw → render)
-  render();
+  sel = d; viewMo = d.slice(0, 7); msg = '';
+  S.active = tripOn(d);
+  S.draw(); // redraws pins + saves, then render()
 }
 function calHtml() {
   const mi = MONTHS.indexOf(viewMo), first = isoToDate(viewMo + '-01');
   const daysIn = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
   let g = ['S', 'M', 'T', 'W', 'T', 'F', 'S'].map(x => `<span class="wd">${x}</span>`).join('') + '<span></span>'.repeat(first.getDay());
   for (let n = 1; n <= daysIn; n++) {
-    const d = `${viewMo}-${String(n).padStart(2, '0')}`, t = S.trips.find(t => t.date === d);
-    g += `<button class="c ${DAYS.includes(d) ? '' : 'out'} ${d === sel ? 'sel' : ''} ${d === TODAY ? 'today' : ''}" data-d="${d}" title="${fmt(d)}${t ? ` · Day ${S.trips.indexOf(t) + 1}` : ''}">${n}${t ? `<i style="--tc:${t.color}"></i>` : ''}</button>`;
+    const d = `${viewMo}-${String(n).padStart(2, '0')}`, t = tripOn(d);
+    g += `<button class="c ${DAYS.includes(d) ? '' : 'out'} ${d === sel ? 'sel' : ''} ${d === TODAY ? 'today' : ''}" data-d="${d}" title="${fmt(d)}${t ? ` · itinerary, ${t.stops.length} stop${t.stops.length === 1 ? '' : 's'}` : ''}">${n}${t ? `<i style="--tc:${t.color}"></i>` : ''}</button>`;
   }
   return `<div class="mcal"><div class="mh"><button data-m="-1" ${mi > 0 ? '' : 'disabled'}>‹</button><b>${fmt(viewMo + '-01', { month: 'long', year: 'numeric' })}</b><button data-m="1" ${mi < MONTHS.length - 1 ? '' : 'disabled'}>›</button></div><div class="mg">${g}</div></div>`;
 }
+
+// ---- itinerary ----
+let msg = '', msgTimer = 0;
+function flash(text) { msg = text; render(); clearTimeout(msgTimer); msgTimer = setTimeout(() => { msg = ''; render(); }, 5000); }
+function itinHtml() {
+  let h = '<div class="itwrap">';
+  undated().forEach((t, i) => h += `<div class="flash">A saved itinerary has no date (${t.stops.map(m => m.name).join(', ')}).<br><button data-orphan="${S.trips.indexOf(t)}">Put it on ${day(sel)}</button></div>`);
+  if (msg) h += `<div class="flash">${msg}</div>`;
+  const t = S.active;
+  if (!t) return h + `<button class="mkitin" id="mk">＋ Create itinerary for ${day(sel)}</button></div>`;
+  const km = S.tripKm(t);
+  h += `<div class="itin" style="--tc:${t.color}"><div class="ih"><b>Itinerary · ${day(sel)}</b><span>${t.stops.length} stop${t.stops.length === 1 ? '' : 's'}${km ? ` · ${Math.round(km)} km` : ''}</span><button id="del" title="Delete this itinerary">✕</button></div>`;
+  if (!t.stops.length) h += `<div class="ie">Tick the markets you want to visit in the list below (or click their pins).</div>`;
+  else {
+    h += `<ol class="tstops">${t.stops.map(m => `<li data-id="${m.id}">${m.name}<small>${m.city}</small>${openOn(m, sel) ? '' : `<span class="warn">⚠ not open ${day(sel)}</span>`}<button class="rm" data-id="${m.id}" title="Remove">✕</button></li>`).join('')}</ol>`;
+    h += `<a class="groute" target="_blank" rel="noopener" href="${t.stops.length === 1 ? gmapsUrl(t.stops[0]) : routeUrl(t.stops.slice(0, 11))}">${t.stops.length === 1 ? '📍 Open in Google Maps' : t.stops.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : '🚗 Route in Google Maps'}</a>`;
+  }
+  return h + `<div class="foot"><span>Saved in this browser</span><button id="copy">🔗 copy share link</button></div></div></div>`;
+}
+// any add (tick, name, map pin) goes to the picked day's itinerary; closed markets can't be added
+const addOrRemove = S.toggle.bind(S);
+S.toggle = m => {
+  if (!S.active?.stops.includes(m) && !openOn(m, sel)) { flash(`${m.name} isn't open ${day(sel)} (${nextOpen(m, sel)}).`); return; }
+  if (!S.active) S.active = S.newTrip(sel);
+  addOrRemove(m);
+};
 
 // ---- how a market's dates read from the chosen day ----
 function info(m, d) {
@@ -160,8 +215,10 @@ document.getElementById('trips').after(box);
 function row(m, l2) {
   const links = (m.url ? `<a href="${m.url}" target="_blank" rel="noopener" title="Market website">🌐</a>` : `<span class="nolink" title="The source page gives no link for this market">🌐</span>`)
     + `<a href="${gmapsUrl(m)}" target="_blank" rel="noopener" title="Open ${m.venue} in Google Maps">📍</a>`;
-  const badges = S.trips.map((t, i) => t.stops.includes(m) ? `<span class="dayb" style="background:${t.color}" title="Planned for Day ${i + 1}">D${i + 1}</span>` : '').join('');
-  return `<div class="row ${S.isPicked(m) ? 'picked' : ''}" data-id="${m.id}"><div class="l1"><span class="nm" title="Add to ${S.active ? 'Day ' + (S.trips.indexOf(S.active) + 1) : 'your sleigh'}">${badges}${m.name}</span><span class="links">${links}</span></div><div class="l2">${m.city} · ${l2}</div></div>`;
+  const A = S.active, on = A?.stops.includes(m);
+  const badges = S.trips.map(t => t !== A && t.stops.includes(m) ? `<span class="dayb" style="background:${t.color}" title="In your ${t.date ? day(t.date) : 'undated'} itinerary">${t.date ? short(t.date) : '?'}</span>` : '').join('');
+  const tick = A && (on || openOn(m, sel)) ? `<input type="checkbox" class="pk" ${on ? 'checked' : ''} title="${on ? 'Remove from' : 'Add to'} this day's itinerary">` : '';
+  return `<div class="row ${on ? 'picked' : ''}" data-id="${m.id}" style="--ac:${A ? A.color : 'var(--red)'}"><div class="l1">${tick}<span class="nm" title="${on ? 'Remove from' : 'Add to'} the ${day(sel)} itinerary">${badges}${m.name}</span><span class="links">${links}</span></div><div class="l2">${m.city} · ${l2}</div></div>`;
 }
 function group(key, label, color, says, rows) {
   return `<details class="grp ${key === 'closed' ? 'closed' : ''}" data-k="${key}" style="--gc:${color}" ${groupOpen(key) ? 'open' : ''}>
@@ -171,10 +228,7 @@ function render() {
   const d = sel;
   const open = MARKETS.filter(m => S.passes(m) && openOn(m, d));
   const by = k => open.filter(m => durationKind(m) === k).sort((a, b) => a.name < b.name ? -1 : 1);
-  const tripsHere = S.trips.map((t, i) => t.date === d ? ` <span class="dayb" style="background:${t.color}">D${i + 1}</span>` : '').join('');
-  const note = S.active && !S.active.date ? `Day ${S.trips.indexOf(S.active) + 1} has no date yet: click one in the calendar to give it that date.` : '';
-  let html = calHtml() + `<div class="dl-head"><div class="t"><span class="car">▶</span><b>Open ${fmt(d, { weekday: 'short', month: 'short', day: 'numeric' })}${tripsHere}</b><span class="n">${open.length} markets</span></div>
-    ${note ? `<div class="note">${note}</div>` : ''}
+  let html = calHtml() + itinHtml() + `<div class="dl-head"><div class="t"><span class="car">▶</span><b>Open ${day(d)}</b><span class="n">${open.length} markets</span></div>
     <div class="sum">${KINDS.filter(k => k !== 'tbd' || by('tbd').length).map(k => `<span class="k ${by(k).length ? '' : 'zero'}"><i style="background:${DURATIONS[k].color}"></i>${by(k).length} ${DURATIONS[k].label.toLowerCase()}</span>`).join('')}</div>
     ${S.kind ? `<div class="note">Showing ${DURATIONS[S.kind].label} only (map filter)</div>` : ''}</div><div class="dl-body">`;
   KINDS.forEach(k => {
@@ -188,10 +242,25 @@ function render() {
   if (!open.length) html += `<div class="empty-note">Nothing open${S.kind ? ' that matches the map filter' : ''} on this day.</div>`;
   const closed = MARKETS.filter(m => S.passes(m) && !openOn(m, d));
   if (closed.length) html += group('closed', 'Not open this day', '', '', closed.map(m => row(m, nextOpen(m, d))));
-  const top = box.querySelector('.dl-body')?.scrollTop || 0;
+  const top = box.scrollTop;
   box.innerHTML = html + '</div>';
   box.classList.toggle('shut', ui.shut);
-  box.querySelector('.dl-body').scrollTop = top;
+  box.scrollTop = top;
+  document.getElementById('mk')?.addEventListener('click', () => { S.active = S.newTrip(sel); S.draw(); });
+  document.getElementById('del')?.addEventListener('click', () => {
+    const t = S.active;
+    if (t.stops.length && !confirm(`Delete the ${day(sel)} itinerary and its ${t.stops.length} stop(s)?`)) return;
+    S.trips.splice(S.trips.indexOf(t), 1); S.active = null; S.draw();
+  });
+  document.getElementById('copy')?.addEventListener('click', e => navigator.clipboard.writeText(location.href).then(() => e.target.textContent = '✓ link copied', () => e.target.textContent = 'copy failed: use the address bar'));
+  box.querySelectorAll('.tstops .rm').forEach(b => b.onclick = () => { const t = S.active; t.stops.splice(t.stops.indexOf(MARKETS[+b.dataset.id]), 1); S.draw(); });
+  box.querySelectorAll('.tstops li').forEach(li => { const m = MARKETS[+li.dataset.id]; li.onmouseenter = () => S.hl(m, true); li.onmouseleave = () => S.hl(m, false); });
+  box.querySelectorAll('[data-orphan]').forEach(b => b.onclick = () => {
+    const t = S.trips[+b.dataset.orphan], here = S.active;
+    if (here) { t.stops.forEach(m => here.stops.includes(m) || here.stops.push(m)); S.trips.splice(S.trips.indexOf(t), 1); }
+    else { t.date = sel; S.active = t; }
+    S.draw();
+  });
 
   box.querySelectorAll('.mcal .c[data-d]').forEach(c => c.onclick = () => pick(c.dataset.d));
   box.querySelectorAll('.mcal [data-m]').forEach(b => b.onclick = () => { viewMo = MONTHS[MONTHS.indexOf(viewMo) + +b.dataset.m]; render(); });
@@ -200,15 +269,14 @@ function render() {
   box.querySelectorAll('.row').forEach(r => {
     const m = MARKETS[+r.dataset.id];
     r.querySelector('.nm').onclick = () => S.toggle(m);
+    r.querySelector('.pk')?.addEventListener('change', () => S.toggle(m));
     r.onmouseenter = () => S.hl(m, true); r.onmouseleave = () => S.hl(m, false);
   });
   S.dim(new Set(open.map(m => m.id)));
 }
 
 // ---- sleigh hooks ----
-S.onPick.push(render);      // stops or dates changed
-S.onActivate.push(t => { if (t?.date) { sel = t.date; viewMo = sel.slice(0, 7); } render(); }); // switched day or changed its date
-S.suggestDate = () => sel;  // a new day starts on the date you're looking at
+S.onPick.push(render);      // stops changed (also saves)
 S.onFilter.push(render);    // "How long?" filter
 S.onHl.push((m, on) => {
   const r = box.querySelector(`.row[data-id="${m.id}"]`);
@@ -216,7 +284,7 @@ S.onHl.push((m, on) => {
   r.classList.toggle('hl', on);
   if (on && !r.matches(':hover') && r.offsetParent) r.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
 });
-render();
+pick(sel);
 </script>
 </body>
 </html>
