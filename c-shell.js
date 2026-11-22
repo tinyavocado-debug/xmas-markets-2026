@@ -147,7 +147,7 @@ const Shell = {
         </div><ol class="tstops"></ol>`;
       const ol = card.querySelector('ol');
       if (!t.stops.length) ol.innerHTML = `<li class="empty">${t !== A ? 'No stops yet. Click this card, then add markets.'
-        : !t.date ? this.pickDayHint : 'Click markets on the map or timeline to add them to this day.'}</li>`;
+        : !t.date ? this.pickDayHint : 'Click markets on the map or in the list to add them to this day.'}</li>`;
       t.stops.forEach(m => {
         const st = t.date ? dayStatus(m, t.date) : null;
         const warn = st === 'closed' ? `<span class="warn">⚠ not open ${shortDay(t.date)}</span>`
