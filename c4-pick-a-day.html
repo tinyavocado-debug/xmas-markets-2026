@@ -165,7 +165,7 @@ function itinHtml() {
   h += `<div class="itin" style="--tc:${t.color}"><div class="ih"><b>Itinerary · ${day(sel)}</b><span>${t.stops.length} stop${t.stops.length === 1 ? '' : 's'}${km ? ` · ${Math.round(km)} km` : ''}</span><button id="del" title="Delete this itinerary">✕</button></div>`;
   if (!t.stops.length) h += `<div class="ie">Tick the markets you want to visit in the list below (or click their pins).</div>`;
   else {
-    h += `<ol class="tstops">${t.stops.map(m => `<li data-id="${m.id}">${m.name}<small>${m.city}</small>${openOn(m, sel) ? '' : `<span class="warn">⚠ not open ${day(sel)}</span>`}<button class="rm" data-id="${m.id}" title="Remove">✕</button></li>`).join('')}</ol>`;
+    h += `<ol class="tstops">${t.stops.map(m => `<li data-id="${m.id}">${m.name}<small>${m.city}</small>${openOn(m, sel) ? '' : `<span class="warn">⚠ not open ${day(sel)}</span>`}<span class="lnk">${m.url ? `<a href="${m.url}" target="_blank" rel="noopener">🌐 market website</a>` : '<span title="The source page gives no link">no website listed</span>'}</span><button class="rm" data-id="${m.id}" title="Remove">✕</button></li>`).join('')}</ol>`;
     h += `<a class="groute" target="_blank" rel="noopener" href="${t.stops.length === 1 ? gmapsUrl(t.stops[0]) : routeUrl(t.stops.slice(0, 11))}">${t.stops.length === 1 ? '📍 Open in Google Maps' : t.stops.length > 11 ? '🚗 Route in Google Maps (first 11 stops; Google’s limit)' : '🚗 Route in Google Maps'}</a>`;
   }
   return h + `<div class="foot"><span>Saved in this browser</span><button id="copy">🔗 copy share link</button></div></div></div>`;
